@@ -67,3 +67,20 @@ dev = [
     "flake8 (>=7.3.0,<8.0.0)",
     "mypy (>=1.18.2,<2.0.0)"
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+]
+filterwarnings = [
+    "error",
+    # Ignore third-party library deprecation warnings
+    "ignore::DeprecationWarning:asttokens.*",
+    "ignore::DeprecationWarning:pylint.*",
+]
