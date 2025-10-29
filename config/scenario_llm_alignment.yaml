@@ -1,0 +1,71 @@
+# LLM Alignment Scenario Configuration
+# Embedding space alignment for language model comparison
+
+# Scenario metadata
+scenario:
+  name: "llm_alignment"
+  description: "Optimal transport between LLM embedding spaces"
+  domain: "ai"
+  reference: "AI alignment and embedding space analysis"
+
+# Data generation parameters
+data:
+  type: "llm_alignment"
+  vocab_size: 1000           # Number of tokens/words
+  embed_dim: 128             # Embedding dimensionality
+  
+  # Model parameters
+  n_models: 2                # Number of LLMs to compare
+  model_names: ["model_A", "model_B"]
+  
+  # Embedding generation
+  distribution: "normal"     # Distribution for embeddings
+  mean: 0.0
+  std: 1.0
+  
+  # Similarity control
+  alignment_level: 0.7       # How aligned the models are (0-1)
+  semantic_clusters: 10      # Number of semantic clusters
+  cluster_separation: 2.0    # Distance between clusters
+  
+  # Domain-specific embeddings
+  shared_concepts: 0.8       # Proportion of shared vocabulary
+  domain_specific: ["technical", "general"]
+  
+  # Seed for reproducibility
+  seed: 42
+
+# Classical OT parameters
+classical_ot:
+  method: "sinkhorn"
+  reg: 0.01
+  num_iter: 1000
+  
+# Quantum OT parameters
+quantum_ot:
+  n_qubits: 12               # Higher dimensional embedding space
+  max_iter: 200
+  optimizer: "COBYLA"
+  shots: 2048                # More shots for better statistics
+
+# Visualization specific to LLM alignment
+visualization:
+  save_figures: true
+  output_dir: "outputs/figures/llm_alignment"
+  plots:
+    - "embedding_space_2d"   # PCA/t-SNE projection
+    - "transport_plan"
+    - "alignment_matrix"
+    - "semantic_clusters"
+    - "wasserstein_distance_distribution"
+  dimensionality_reduction: "tsne"  # Options: "pca", "tsne", "umap"
+
+# Analysis parameters
+analysis:
+  similarity_metrics: ["cosine", "euclidean", "wasserstein"]
+  cluster_analysis: true
+  alignment_score_threshold: 0.6
+  
+  # Interpretation
+  top_k_aligned: 50          # Show top K most aligned tokens
+  top_k_misaligned: 50       # Show top K most misaligned tokens

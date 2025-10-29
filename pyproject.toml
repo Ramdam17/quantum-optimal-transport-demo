@@ -1,0 +1,69 @@
+[project]
+name = "quantumoptimaltransportdemo"
+version = "0.1.0"
+description = "Educational repository demonstrating Quantum Optimal Transport with applications in neuroscience, AI, and genetics"
+authors = [
+    {name = "ramdam17",email = "remy.ramadour.labs@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # Core scientific libraries
+    "numpy>=1.26.0",
+    "scipy>=1.11.0",
+    "pandas>=2.1.0",
+    
+    # Optimal Transport
+    "pot>=0.9.1",
+    
+    # Quantum computing
+    "qiskit>=1.0.0",
+    "qiskit-aer>=0.13.0",
+    
+    # Configuration
+    "pyyaml>=6.0.1",
+    
+    # Visualization
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0",
+    "plotly>=5.18.0",
+    
+    # Jupyter
+    "jupyter>=1.0.0",
+    "ipykernel>=6.27.0",
+    "ipywidgets>=8.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    
+    # Code formatting
+    "black>=23.11.0",
+    "isort>=5.12.0",
+    
+    # Linting
+    "pylint>=3.0.0",
+    "flake8>=6.1.0",
+    
+    # Type checking
+    "mypy>=1.7.0",
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=8.4.2,<9.0.0)",
+    "pytest-cov (>=7.0.0,<8.0.0)",
+    "black (>=25.9.0,<26.0.0)",
+    "isort (>=7.0.0,<8.0.0)",
+    "pylint (>=4.0.2,<5.0.0)",
+    "flake8 (>=7.3.0,<8.0.0)",
+    "mypy (>=1.18.2,<2.0.0)"
+]

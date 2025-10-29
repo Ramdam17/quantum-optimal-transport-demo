@@ -1,0 +1,92 @@
+# Genetics Scenario Configuration
+# Gene expression analysis for population comparison
+
+# Scenario metadata
+scenario:
+  name: "genetics"
+  description: "Optimal transport for gene expression comparison across populations"
+  domain: "genetics"
+  reference: "Computational biology and population genetics"
+
+# Data generation parameters
+data:
+  type: "genetics"
+  n_genes: 100               # Number of genes
+  n_samples_per_pop: 200     # Samples per population
+  n_populations: 2           # Number of populations to compare
+  population_names: ["population_A", "population_B"]
+  
+  # Gene expression parameters
+  expression_distribution: "log_normal"  # Realistic for RNA-seq
+  mean_expression: 5.0       # Log2 scale
+  variance: 2.0
+  
+  # Differential expression
+  n_differential_genes: 20   # Number of genes with different expression
+  differential_magnitude: 2.0  # Fold change (log2 scale)
+  differential_genes_indices: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 
+                                50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
+  
+  # Batch effects (optional)
+  batch_effect: false
+  batch_effect_strength: 0.5
+  
+  # Noise and technical variation
+  technical_noise: 0.1       # Standard deviation
+  biological_noise: 0.2      # Natural variation within populations
+  
+  # Normalization
+  normalize: true            # Apply normalization
+  normalization_method: "quantile"  # Options: "quantile", "zscore", "minmax"
+  
+  # Seed for reproducibility
+  seed: 42
+
+# Classical OT parameters
+classical_ot:
+  method: "sinkhorn"
+  reg: 0.02
+  num_iter: 1500
+
+# Quantum OT parameters
+quantum_ot:
+  n_qubits: 8
+  max_iter: 150
+  optimizer: "COBYLA"
+
+# Visualization specific to genetics
+visualization:
+  save_figures: true
+  output_dir: "outputs/figures/genetics"
+  plots:
+    - "expression_distributions"
+    - "volcano_plot"         # Differential expression
+    - "heatmap"              # Gene expression heatmap
+    - "transport_plan"
+    - "gene_transport_flow"
+    - "population_comparison"
+  
+  # Heatmap settings
+  cluster_genes: true        # Hierarchical clustering
+  cluster_samples: true
+  color_scheme: "RdBu_r"     # Red-Blue colormap
+
+# Analysis parameters
+analysis:
+  differential_expression:
+    method: "t_test"         # Statistical test
+    correction: "bonferroni" # Multiple testing correction
+    significance_level: 0.05
+    fold_change_threshold: 1.5  # Minimum fold change (log2)
+  
+  # Pathway analysis (simplified)
+  pathway_enrichment: false
+  
+  # Statistical tests
+  statistical_tests: ["t_test", "mann_whitney"]
+  
+  # Gene filtering
+  min_expression_threshold: 1.0  # Filter low-expression genes
+  
+  # Population structure
+  pca_components: 10         # Principal components to compute

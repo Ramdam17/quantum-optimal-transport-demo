@@ -1,0 +1,64 @@
+# Hyperscanning Scenario Configuration
+# Brain activity simulation for dyadic interaction studies
+
+# Scenario metadata
+scenario:
+  name: "hyperscanning"
+  description: "Brain synchrony analysis in dyadic social interactions"
+  domain: "neuroscience"
+  reference: "Social neuroscience and hyperscanning literature"
+
+# Data generation parameters
+data:
+  type: "hyperscanning"
+  n_subjects: 2              # Number of subjects (typically 2 for dyads)
+  n_regions: 20              # Number of brain regions (ROIs)
+  n_timepoints: 500          # Length of time series
+  sampling_rate: 1.0         # Hz (samples per second)
+  
+  # Brain activity parameters
+  baseline_activity: 0.5     # Mean baseline activity level
+  noise_level: 0.1           # Gaussian noise std dev
+  
+  # Inter-subject synchrony
+  synchrony_level: 0.6       # Correlation between subjects (0-1)
+  synchrony_regions: [0, 1, 2, 3, 4]  # Which regions show high synchrony
+  
+  # Temporal dynamics
+  autocorrelation: 0.8       # Temporal autocorrelation (0-1)
+  frequency_bands:
+    theta: [4, 8]            # Hz
+    alpha: [8, 13]           # Hz
+    beta: [13, 30]           # Hz
+  
+  # Seed for reproducibility
+  seed: 42
+
+# Classical OT parameters (inherits from default.yaml)
+classical_ot:
+  method: "sinkhorn"
+  reg: 0.05                  # Higher reg for time series data
+  num_iter: 2000
+
+# Quantum OT parameters
+quantum_ot:
+  n_qubits: 10               # More qubits for brain data
+  max_iter: 150
+  optimizer: "COBYLA"
+
+# Visualization specific to hyperscanning
+visualization:
+  save_figures: true
+  output_dir: "outputs/figures/hyperscanning"
+  plots:
+    - "brain_activity_timeseries"
+    - "correlation_matrix"
+    - "transport_plan"
+    - "wasserstein_distance"
+    - "synchrony_heatmap"
+
+# Analysis parameters
+analysis:
+  time_windows: [50, 100, 200]  # Window sizes for sliding analysis
+  statistical_tests: ["pearson", "spearman"]
+  significance_level: 0.05

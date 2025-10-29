@@ -1,0 +1,57 @@
+# Default Configuration for Quantum Optimal Transport Project
+# This file contains base parameters that can be overridden by scenario-specific configs
+
+# Project metadata
+project:
+  name: "Quantum Optimal Transport Demo"
+  version: "0.1.0"
+  description: "Educational demonstration of Quantum Optimal Transport"
+
+# Random seed for reproducibility
+random_seed: 42
+
+# Classical optimal transport parameters
+classical_ot:
+  method: "sinkhorn"  # Options: "sinkhorn", "exact"
+  reg: 0.01           # Entropic regularization parameter
+  num_iter: 1000      # Maximum Sinkhorn iterations
+  tolerance: 1e-6     # Convergence tolerance
+  verbose: false      # Print iteration details
+
+# Quantum optimal transport parameters
+quantum_ot:
+  backend: "qiskit"          # Options: "qiskit", "pennylane"
+  simulator: "statevector"   # Options: "statevector", "qasm"
+  n_qubits: 8                # Number of qubits to use
+  optimizer: "COBYLA"        # Options: "COBYLA", "SPSA", "SLSQP"
+  max_iter: 100              # Maximum optimization iterations
+  shots: 1024                # Number of measurement shots (if using qasm)
+  use_simulator: true        # Use simulator vs real quantum hardware
+  verbose: false             # Print optimization progress
+
+# Visualization settings
+visualization:
+  save_figures: true
+  output_dir: "outputs/figures"
+  format: "png"              # Options: "png", "pdf", "svg"
+  dpi: 300
+  style: "seaborn-v0_8"      # Matplotlib style
+  show_interactive: false    # Display plots in notebook
+  figsize:
+    width: 10
+    height: 6
+  color_palette: "viridis"   # Color scheme for plots
+
+# Logging configuration
+logging:
+  level: "INFO"              # Options: "DEBUG", "INFO", "WARNING", "ERROR"
+  file: "logs/qot_{date}.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+
+# Output settings
+outputs:
+  save_results: true
+  results_dir: "outputs/results"
+  format: "json"             # Options: "json", "csv"
+  timestamp: true            # Add timestamp to output filenames
