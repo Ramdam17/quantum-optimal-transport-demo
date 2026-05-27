@@ -12,13 +12,14 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints/
 
-# LaTeX build artifacts
+# LaTeX build artifacts (PDFs are regenerated from .tex / build_summary)
 *.aux
 *.log
 *.out
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+*.pdf
 
 # Data / outputs / secrets
 data/
