@@ -20,6 +20,8 @@ htmlcov/
 *.fdb_latexmk
 *.synctex.gz
 *.pdf
+summaries/*.tex
+
 
 # Data / outputs / secrets
 data/
