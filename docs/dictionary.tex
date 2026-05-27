@@ -1,0 +1,20 @@
+% docs/dictionary.tex --- living classical<->quantum correspondence table.
+% Grown one row per session. Compile: latexmk -pdf dictionary.tex
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,booktabs,longtable}
+\usepackage[margin=1in]{geometry}
+\title{Classical $\leftrightarrow$ Quantum Dictionary}
+\date{}
+\begin{document}
+\maketitle
+\begin{longtable}{p{0.45\textwidth} p{0.45\textwidth}}
+\toprule
+\textbf{Classical} & \textbf{Quantum} \\
+\midrule
+\endhead
+probability vector $p$ & density matrix $\rho$ (diagonal $\Rightarrow$ classical) \\
+marginal & partial trace \\
+% one row added per session
+\bottomrule
+\end{longtable}
+\end{document}
