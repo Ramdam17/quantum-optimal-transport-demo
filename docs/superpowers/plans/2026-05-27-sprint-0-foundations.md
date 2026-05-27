@@ -10,6 +10,8 @@
 
 **Plan series:** This is **Plan 1 of the course**. Subsequent plans (S1…S16) are written just-in-time and build on this foundation. This plan must leave `uv run pytest` green and a sample summary PDF buildable.
 
+**Verified environment (cross-checked against the owner's working Qiskit tutorials, May 2026):** pinned versions `qiskit==2.4.1`, `qiskit-ibm-runtime==0.47.0`, `qiskit-aer==0.17.2`, plus `pylatexenc` for circuit drawing. Real-hardware idioms to reuse verbatim in later session plans: `QiskitRuntimeService()` → `service.least_busy(operational=True, simulator=False, min_num_qubits=...)`; transpile via `generate_preset_pass_manager(optimization_level=1, backend=backend)`; execute with `SamplerV2`/`EstimatorV2` (options `resilience_level`, `dynamical_decoupling.enable`, `sequence_type="XY4"`); retrieve via `job.job_id()` → `service.job(id)` → `result.data.evs` / `result.data.c.get_counts()`. The free **Open Plan** (`open-instance`) is confirmed working. **Credentials rule (non-negotiable):** never hardcode an API token in code or notebooks — run `QiskitRuntimeService.save_account(...)` once locally (or use an environment variable), then notebooks call `QiskitRuntimeService()` with no arguments.
+
 ---
 
 ## File structure (created by this plan)
@@ -68,12 +70,13 @@ dependencies = [
     "scipy>=1.11",
     "matplotlib>=3.8",
     "pot>=0.9.3",
-    "qiskit>=1.0",
-    "qiskit-aer>=0.14",
-    "qiskit-ibm-runtime>=0.20",
+    "qiskit>=2.4",
+    "qiskit-aer>=0.17.2",
+    "qiskit-ibm-runtime>=0.47",
     "cvxpy>=1.4",
     "jinja2>=3.1",
     "pyyaml>=6.0",
+    "pylatexenc>=2.10",
     "jupyter>=1.0",
 ]
 
