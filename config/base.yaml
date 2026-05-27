@@ -1,0 +1,5 @@
+# Global defaults shared across sessions. Session configs override these.
+seed: 42
+paths:
+  summaries_dir: "summaries"
+  docs_dir: "docs"

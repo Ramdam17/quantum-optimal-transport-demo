@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Data / outputs / secrets
+data/
+outputs/
+logs/
+.env
+.secret
+*.key
+
+# OS
+.DS_Store
