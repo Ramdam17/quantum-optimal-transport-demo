@@ -201,3 +201,30 @@ def plot_counts(counts: dict[str, int], ax: plt.Axes | None = None) -> plt.Figur
     for label, value in zip(labels, values):
         ax.annotate(str(value), (label, value), ha="center", va="bottom", fontsize=11)
     return fig
+
+
+def plot_density_matrix(rho, title: str = "") -> plt.Figure:
+    """Show the real and imaginary parts of a density matrix as annotated heatmaps."""
+    rho = np.asarray(rho, dtype=complex)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
+    for ax, part, name in zip(axes, (rho.real, rho.imag), ("Re(rho)", "Im(rho)")):
+        im = ax.imshow(part, cmap="RdBu_r", vmin=-1.0, vmax=1.0)
+        ax.set_title(name, pad=10)
+        ax.set_xticks(range(part.shape[1]))
+        ax.set_yticks(range(part.shape[0]))
+        ax.grid(False)
+        for i in range(part.shape[0]):
+            for j in range(part.shape[1]):
+                ax.annotate(
+                    f"{part[i, j]:.2f}",
+                    (j, i),
+                    ha="center",
+                    va="center",
+                    color="#0d1117",
+                    fontsize=11,
+                )
+        fig.colorbar(im, ax=ax, shrink=0.8)
+    if title:
+        fig.suptitle(title, fontsize=15, fontweight="bold")
+    fig.tight_layout()
+    return fig
