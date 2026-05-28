@@ -175,3 +175,29 @@ def plot_transport_arrows(
     ax.grid(False)
     ax.margins(y=0.3)
     return fig
+
+
+def plot_bloch(state, title: str = "") -> plt.Figure:
+    """Plot a pure qubit state on the Bloch sphere (via Qiskit)."""
+    from qiskit.visualization import plot_bloch_vector
+
+    from qot_course.quantum.states import bloch_vector
+
+    return plot_bloch_vector(list(bloch_vector(state)), title=title)
+
+
+def plot_counts(counts: dict[str, int], ax: plt.Axes | None = None) -> plt.Figure:
+    """Bar chart of measurement counts (computational basis)."""
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 4.5))
+    else:
+        fig = ax.figure
+    labels = sorted(counts)
+    values = [counts[k] for k in labels]
+    ax.bar(labels, values, color=[SOURCE_COLOR, TARGET_COLOR][: len(labels)], alpha=0.9)
+    ax.set_xlabel("measurement outcome")
+    ax.set_ylabel("counts")
+    ax.set_title("Measurement outcomes", pad=12)
+    for label, value in zip(labels, values):
+        ax.annotate(str(value), (label, value), ha="center", va="bottom", fontsize=11)
+    return fig
