@@ -48,33 +48,81 @@ def use_course_style() -> None:
 
 
 def plot_distributions(
-    source: np.ndarray, target: np.ndarray, ax: plt.Axes | None = None
+    source: np.ndarray,
+    target: np.ndarray,
+    source_positions: np.ndarray | None = None,
+    target_positions: np.ndarray | None = None,
+    ax: plt.Axes | None = None,
 ) -> plt.Figure:
-    """Bar plot of the source and target mass distributions over positions."""
+    """Bar plot of source and target mass distributions over positions.
+
+    When ``source_positions`` and ``target_positions`` are omitted or identical, the
+    bars are drawn side-by-side over the shared integer grid (S1 behaviour). When the
+    two distributions live on *different* position sets (the S8 Monge-fails case),
+    each bar sits at its own position with the target partially transparent.
+    """
     source = np.asarray(source, dtype=float)
     target = np.asarray(target, dtype=float)
+    if source_positions is None:
+        source_positions = np.arange(len(source), dtype=float)
+    if target_positions is None:
+        target_positions = np.arange(len(target), dtype=float)
+    source_positions = np.asarray(source_positions, dtype=float)
+    target_positions = np.asarray(target_positions, dtype=float)
+
     if ax is None:
         fig, ax = plt.subplots(figsize=(9, 4.5))
     else:
         fig = ax.figure
-    x = np.arange(len(source))
-    ax.bar(
-        x - 0.18,
-        source,
-        width=0.36,
-        color=SOURCE_COLOR,
-        label="source — the pile we have",
-        alpha=0.9,
+
+    same_grid = (
+        len(source) == len(target)
+        and source_positions.shape == target_positions.shape
+        and np.allclose(source_positions, target_positions)
     )
-    ax.bar(
-        x + 0.18,
-        target,
-        width=0.36,
-        color=TARGET_COLOR,
-        label="target — the pile we want",
-        alpha=0.9,
-    )
-    ax.set_xticks(x)
+    if same_grid:
+        ax.bar(
+            source_positions - 0.18,
+            source,
+            width=0.36,
+            color=SOURCE_COLOR,
+            label="source — the pile we have",
+            alpha=0.9,
+        )
+        ax.bar(
+            source_positions + 0.18,
+            target,
+            width=0.36,
+            color=TARGET_COLOR,
+            label="target — the pile we want",
+            alpha=0.9,
+        )
+        ax.set_xticks(source_positions)
+    else:
+        ax.bar(
+            source_positions,
+            source,
+            width=0.32,
+            color=SOURCE_COLOR,
+            label="source",
+            alpha=0.85,
+            edgecolor="white",
+            linewidth=1.0,
+        )
+        ax.bar(
+            target_positions,
+            target,
+            width=0.32,
+            color=TARGET_COLOR,
+            label="target",
+            alpha=0.65,
+            edgecolor="white",
+            linewidth=1.0,
+        )
+        all_positions = np.unique(
+            np.concatenate([source_positions, target_positions])
+        )
+        ax.set_xticks(all_positions)
     ax.set_xlabel("position")
     ax.set_ylabel("probability mass")
     ax.set_title("Two distributions over positions", pad=12)
@@ -120,14 +168,29 @@ def plot_transport_arrows(
     source: np.ndarray,
     target: np.ndarray,
     plan: np.ndarray,
+    source_positions: np.ndarray | None = None,
+    target_positions: np.ndarray | None = None,
     ax: plt.Axes | None = None,
+    title: str = "Optimal transport — who moves where (line width $\\propto$ mass)",
 ) -> plt.Figure:
-    """Flow view: source (top) and target (bottom) as mass-sized dots, with one
-    line per non-zero transport, its width and opacity proportional to the mass."""
+    """Flow view: source (top row) and target (bottom row) as mass-sized dots, with
+    one line per non-zero transport, its width and opacity proportional to the mass.
+
+    Pass ``source_positions`` / ``target_positions`` when source and target live on
+    *different* position sets (e.g. the S8 mass-splitting example with 1 source atom
+    and 2 target atoms). When omitted, both rows use ``np.arange`` over their own
+    lengths (S1 behaviour, backward-compatible).
+    """
     source = np.asarray(source, dtype=float)
     target = np.asarray(target, dtype=float)
     plan = np.asarray(plan, dtype=float)
-    n = len(source)
+    if source_positions is None:
+        source_positions = np.arange(len(source), dtype=float)
+    if target_positions is None:
+        target_positions = np.arange(len(target), dtype=float)
+    source_positions = np.asarray(source_positions, dtype=float)
+    target_positions = np.asarray(target_positions, dtype=float)
+
     if ax is None:
         fig, ax = plt.subplots(figsize=(10, 4.5))
     else:
@@ -139,7 +202,7 @@ def plot_transport_arrows(
             mass = plan[i, j]
             if mass > 1e-9:
                 ax.plot(
-                    [i, j],
+                    [source_positions[i], target_positions[j]],
                     [1, 0],
                     color=FLOW_COLOR,
                     alpha=0.2 + 0.6 * mass / peak,
@@ -148,8 +211,8 @@ def plot_transport_arrows(
                     zorder=2,
                 )
     ax.scatter(
-        np.arange(n),
-        np.ones(n),
+        source_positions,
+        np.ones(len(source)),
         s=3000 * source,
         color=SOURCE_COLOR,
         alpha=0.9,
@@ -157,8 +220,8 @@ def plot_transport_arrows(
         label="source",
     )
     ax.scatter(
-        np.arange(n),
-        np.zeros(n),
+        target_positions,
+        np.zeros(len(target)),
         s=3000 * target,
         color=TARGET_COLOR,
         alpha=0.9,
@@ -167,11 +230,10 @@ def plot_transport_arrows(
     )
     ax.set_yticks([0, 1])
     ax.set_yticklabels(["target", "source"])
-    ax.set_xticks(np.arange(n))
+    all_positions = np.unique(np.concatenate([source_positions, target_positions]))
+    ax.set_xticks(all_positions)
     ax.set_xlabel("position")
-    ax.set_title(
-        "Optimal transport — who moves where (line width $\\propto$ mass)", pad=12
-    )
+    ax.set_title(title, pad=12)
     ax.grid(False)
     ax.margins(y=0.3)
     return fig
@@ -226,5 +288,168 @@ def plot_density_matrix(rho, title: str = "") -> plt.Figure:
         fig.colorbar(im, ax=ax, shrink=0.8)
     if title:
         fig.suptitle(title, fontsize=15, fontweight="bold")
+    fig.tight_layout()
+    return fig
+
+
+# --------------------------------------------------------------------------- #
+# Simplex plotting (S6 — information geometry)
+# --------------------------------------------------------------------------- #
+_SIMPLEX_VERTICES_2D = np.array(
+    [[0.0, 0.0], [1.0, 0.0], [0.5, np.sqrt(3.0) / 2.0]]
+)
+_SIMPLEX_PATH_PALETTE = [FLOW_COLOR, SOURCE_COLOR, TARGET_COLOR, "#0ea5e9", "#ef4444"]
+
+
+def _draw_simplex_axes(
+    ax: plt.Axes,
+    vertex_labels: tuple[str, str, str] = (
+        r"$\delta_1=(1,0,0)$",
+        r"$\delta_2=(0,1,0)$",
+        r"$\delta_3=(0,0,1)$",
+    ),
+) -> None:
+    """Draw the empty 2-simplex triangle with labelled vertices on ``ax``."""
+    v = _SIMPLEX_VERTICES_2D
+    triangle = np.vstack([v, v[0:1]])
+    ax.plot(triangle[:, 0], triangle[:, 1], color="#475569", lw=1.5, zorder=1)
+    label_offsets = ((-12, -10), (12, -10), (0, 10))
+    label_ha = ("right", "left", "center")
+    label_va = ("top", "top", "bottom")
+    for vert, label, off, ha, va in zip(
+        v, vertex_labels, label_offsets, label_ha, label_va
+    ):
+        ax.annotate(
+            label,
+            vert,
+            xytext=off,
+            textcoords="offset points",
+            ha=ha,
+            va=va,
+            fontsize=11,
+            fontweight="bold",
+        )
+    ax.set_aspect("equal")
+    ax.set_xlim(-0.18, 1.18)
+    ax.set_ylim(-0.18, np.sqrt(3.0) / 2.0 + 0.18)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.grid(False)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+
+def plot_simplex_points(
+    named_points: dict[str, np.ndarray],
+    ax: plt.Axes | None = None,
+    title: str = "The 2-simplex — categorical distributions over three outcomes",
+) -> plt.Figure:
+    """Place labelled categorical distributions inside the 2-simplex triangle."""
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(7.5, 6.5))
+    else:
+        fig = ax.figure
+    _draw_simplex_axes(ax)
+    palette = [SOURCE_COLOR, TARGET_COLOR, FLOW_COLOR, "#0ea5e9", "#ef4444", "#a855f7"]
+    for k, (name, p) in enumerate(named_points.items()):
+        xy = np.asarray(p, dtype=float).ravel() @ _SIMPLEX_VERTICES_2D
+        ax.scatter(
+            *xy,
+            color=palette[k % len(palette)],
+            s=160,
+            zorder=3,
+            edgecolor="white",
+            linewidth=1.5,
+        )
+        ax.annotate(
+            name,
+            xy,
+            xytext=(9, 6),
+            textcoords="offset points",
+            fontsize=10,
+        )
+    ax.set_title(title, pad=14)
+    return fig
+
+
+def plot_simplex_paths(
+    named_paths: dict[str, np.ndarray],
+    endpoints: dict[str, np.ndarray] | None = None,
+    ax: plt.Axes | None = None,
+    title: str = "Paths on the 2-simplex",
+) -> plt.Figure:
+    """Plot one or more curves (each an array of 3-vectors) on the 2-simplex."""
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(7.5, 6.5))
+    else:
+        fig = ax.figure
+    _draw_simplex_axes(ax)
+    for k, (name, path) in enumerate(named_paths.items()):
+        xy = np.asarray(path, dtype=float) @ _SIMPLEX_VERTICES_2D
+        ax.plot(
+            xy[:, 0],
+            xy[:, 1],
+            color=_SIMPLEX_PATH_PALETTE[k % len(_SIMPLEX_PATH_PALETTE)],
+            lw=2.5,
+            label=name,
+            zorder=2,
+        )
+    if endpoints:
+        for name, p in endpoints.items():
+            xy = np.asarray(p, dtype=float).ravel() @ _SIMPLEX_VERTICES_2D
+            ax.scatter(
+                *xy,
+                color="#0f172a",
+                s=80,
+                zorder=4,
+                edgecolor="white",
+                linewidth=1.5,
+            )
+            ax.annotate(
+                name,
+                xy,
+                xytext=(9, 6),
+                textcoords="offset points",
+                fontsize=11,
+                fontweight="bold",
+            )
+    ax.set_title(title, pad=14)
+    if named_paths:
+        ax.legend(
+            loc="lower center",
+            bbox_to_anchor=(0.5, -0.06),
+            ncol=len(named_paths),
+            frameon=False,
+        )
+    return fig
+
+
+def plot_interpolation_panel(
+    support: np.ndarray,
+    times: list[float],
+    paths_by_label: dict[str, list[np.ndarray]],
+    titles: dict[str, str] | None = None,
+) -> plt.Figure:
+    """Plot one row per labelled interpolation (each a list of distributions over time).
+
+    Designed for the S6 "two geometries" comparison: pass e.g. a ``"mixture"`` row and
+    a ``"Wasserstein"`` row, each with the same set of time snapshots, on a shared
+    1-D ``support`` --- the colour evolves from cold (t=0) to warm (t=1) along the path.
+    """
+    n_rows = len(paths_by_label)
+    fig, axes = plt.subplots(n_rows, 1, figsize=(10, 3.6 * n_rows), sharex=True)
+    if n_rows == 1:
+        axes = [axes]
+    cmap = plt.colormaps["viridis"]
+    for ax, (label, snapshots) in zip(axes, paths_by_label.items()):
+        for k, (t, pt) in enumerate(zip(times, snapshots)):
+            color = cmap(k / max(1, len(times) - 1))
+            ax.plot(support, pt, color=color, lw=2.0, label=f"t={t:.2f}")
+        ax.set_ylabel("probability mass")
+        ax.set_title(
+            (titles or {}).get(label, label), pad=10
+        )
+        ax.legend(loc="upper right", ncol=len(times), fontsize=9)
+    axes[-1].set_xlabel("position  $x$")
     fig.tight_layout()
     return fig
