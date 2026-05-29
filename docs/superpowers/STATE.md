@@ -27,11 +27,11 @@ the graphic charter (palette module), then reorganize folders, then build one no
 - D5 Capstone = **A+B+C** multi-notebook arc (naive → diagnose redundancy → enrich embedding → discriminate → synthesize).
 - D6 Total ≈ **57** notebooks.
 - D7 Apply PPSP house style (palette centralized, no hardcoded hex, fixed fig dims), adapted to matplotlib.
+- D8 **Voice = warm, empowering, celebratory** (audience incl. a self-love-affirmation learner): celebrate accomplishment, frame difficulty as growth, ban "obviously/simply/trivially/just"; **no decorative emojis**; rigor intact.
 
 ## Open questions
 
-- Charter: keep status emoji (🔬) in headers or align with PPSP "no emojis"? — DECIDE in charter phase.
-- Exact QOT palette definition — DECIDE in charter phase.
+- Exact QOT palette definition — DECIDE in charter phase. (Emoji + voice/tone now locked — see D8.)
 
 ## Progress checklist
 
@@ -40,6 +40,7 @@ the graphic charter (palette module), then reorganize folders, then build one no
 - [x] Committed s06–s16 (notebooks + modules + tests) — 12 per-session commits.
 - [x] Reviewed PPSP house style (ConnectivityMetricsTutorials) — see memory `ppsp-tutorial-house-style`.
 - [x] Brainstormed + locked the target structure (this STATE + the design spec).
+- [x] Spec reviewed & approved by Rémy; charter voice/tone + no-emoji locked (D8).
 
 ### Not started — build (one notebook at a time, commit each, tick here)
 - [ ] Build plan written (writing-plans) and reviewed.

@@ -174,9 +174,27 @@ matplotlib notebooks (no MyST/Jupyter Book). Target rules:
 - **Fixed figure dimensions + DPI**, fixed font sizes (per STYLE_GUIDE table).
 - **Every figure explained** ("Read the figure") — already a QOT strength, keep it.
 - **Cite source papers** in docstrings and notebook references — already a QOT strength.
-- **Open charter decisions (finalize in the "apply charter" phase):**
-  (a) status emoji in headers (current QOT uses 🔬) — align with PPSP "no emojis" or keep?
-  (b) the exact QOT palette (transport source/target/flow + density-matrix Re/Im + band-like roles).
+- **No decorative emojis** (including the status 🔬) — align with the PPSP "no emojis" rule; warmth comes from words, not icons.
+
+### Voice & tone — warm, empowering, celebratory (AND rigorous)
+
+One of the learners starts each day with a self-love affirmation card; the notebooks must carry
+that spirit. The voice is benevolent and confidence-building:
+
+- **Celebrate accomplishment.** Name what the learner just achieved ("you've now built a density
+  matrix from scratch — the central object of the whole course"). Mark milestones; honour the effort.
+- **Empower.** Frame the learner as capable; difficulty is growth, never a wall ("this looks
+  intimidating — and you already hold every piece it needs").
+- **Welcome new knowledge with joy** — curiosity over intimidation. The fine grain helps: each
+  brick is a small, real win to celebrate.
+- **Kindness toward oneself.** No condescension, no gatekeeping; ban "obviously / simply /
+  trivially / just". Normalise finding things hard.
+- **Rigor intact.** Warmth is never false praise or softened science — we celebrate *real*
+  understanding and *real* effort. Encouragement and honesty together.
+
+### Open charter decision (finalize in the "apply charter" phase)
+
+- The exact QOT palette (transport source/target/flow + density-matrix Re/Im + band-like roles).
 
 ## 7. Build order (phasing)
 

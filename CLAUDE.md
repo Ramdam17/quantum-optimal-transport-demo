@@ -23,6 +23,11 @@ the plan, the docs win.**
   NEVER bulk-generate many notebooks in one unreviewed pass (that is the original failure).
 - **Graphic charter:** centralized palette in `qot_course.viz`; **no hardcoded hex in notebooks**;
   fixed figure dimensions/DPI/fonts; every figure followed by a "Read the figure" explanation.
+- **Voice = warm, empowering, celebratory — AND rigorous.** The audience includes a learner who
+  starts each day with a self-love affirmation; carry that spirit. Celebrate what was just achieved,
+  frame difficulty as growth (never a wall), welcome new knowledge with joy, be kind — **ban
+  "obviously / simply / trivially / just"** and any condescension. Warmth never softens the science
+  (no false praise). **No decorative emojis** (incl. status 🔬); warmth lives in the words.
 - **The capstone (04/11–16) must follow the A+B+C arc and *demonstrate* when QOT beats PLV.**
   NEVER conclude "it doesn't work / it's open" without having run the discriminating experiment.
   (The old capstone's "open question" was a non-test: the embedding made QMI/Bures monotone in PLV.)
