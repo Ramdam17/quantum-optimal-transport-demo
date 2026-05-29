@@ -39,7 +39,7 @@ Palette visual sign-off is pending — run `uv run python scripts/show_palette.p
 
 ## Open questions
 
-- Palette: proposed in Plan A, pending Rémy's visual sign-off via scripts/show_palette.py.
+- _(none — palette signed off by Rémy 2026-05-28; charter fully locked.)_
 
 ## Progress checklist
 
