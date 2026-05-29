@@ -33,3 +33,10 @@ logs/
 
 # OS
 .DS_Store
+
+# Internal / process docs — kept on disk for resumable work, not published
+/CLAUDE.md
+/docs/audit-notebooks-*.md
+/docs/superpowers/
+# Generated figures (palette swatch, etc.)
+/figures/

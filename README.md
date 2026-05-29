@@ -1,10 +1,13 @@
 # Quantum Optimal Transport — Hands-On Course
 
-A 16-session hands-on course from classical optimal transport to quantum optimal transport.
+> 🚧 **Under active restructuring (2026-05).** Moving from 16 dense notebooks to ~57 fine-grained,
+> one-concept-per-notebook modules across four movements (quantum foundations → information &
+> geometry → classical OT → quantum OT). The structure and docs will change; a full README lands
+> when the restructure completes.
 
-- **Teaser (share this):** `docs/qot-course-teaser.md`
-- **Design spec:** `docs/superpowers/specs/2026-05-27-qot-course-design.md`
-- **Plans:** `docs/superpowers/plans/`
+A hands-on course from classical optimal transport to its quantum generalization.
+
+- **Teaser:** `docs/qot-course-teaser.md` *(being rewritten)*
 
 ## Setup
 
