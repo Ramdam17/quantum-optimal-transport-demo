@@ -12,6 +12,7 @@ from qot_course.quantum_ot.sdp import (
     swap_cost,
     swap_matrix,
 )
+from qot_course.quantum_ot.sinkhorn import quantum_sinkhorn_cost
 
 
 # ----------------------------- SWAP basics --------------------------------- #
@@ -142,3 +143,17 @@ def test_qot_value_at_or_below_product_coupling_cost():
     product_coupling = tensor(rho_a, rho_b)
     independent_cost = float(np.real(np.trace(cost_op @ product_coupling)))
     assert qot_value <= independent_cost + 1e-5
+
+
+# ----------------------------- QOT-zoo reconciliation anchor --------------- #
+def test_entropic_cost_converges_to_sdp_as_epsilon_to_zero():
+    """QOT-zoo anchor: the entropic transport cost approaches the unregularised
+    SDP optimum as eps -> 0. Uses a full-rank commuting diagonal pair (NOT
+    |+><+| vs I/2, whose Araki-Lieb-pinned entropy puts the entropic optimum on
+    the PSD-cone boundary)."""
+    rho_a = np.diag([0.5, 0.3, 0.2]).astype(complex)
+    rho_b = np.diag([0.2, 0.3, 0.5]).astype(complex)
+    cost = quadratic_position_cost([0.0, 1.0, 2.0])
+    sdp_value, _ = quantum_ot_sdp(rho_a, rho_b, cost)
+    near = quantum_sinkhorn_cost(rho_a, rho_b, cost, epsilon=0.02)
+    assert abs(near - sdp_value) < 0.05
