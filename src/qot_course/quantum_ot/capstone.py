@@ -82,9 +82,7 @@ def phase_qubit_state(theta: np.ndarray) -> np.ndarray:
     ) / np.sqrt(2.0)
 
 
-def joint_density_matrix(
-    theta_1: np.ndarray, theta_2: np.ndarray
-) -> np.ndarray:
+def joint_density_matrix(theta_1: np.ndarray, theta_2: np.ndarray) -> np.ndarray:
     """Build the time-averaged bipartite density matrix
     :math:`\\rho_{AB} = \\mathbb{E}_t[|\\psi_A(t)\\rangle\\langle\\psi_A(t)|
     \\otimes |\\psi_B(t)\\rangle\\langle\\psi_B(t)|]`.
@@ -131,9 +129,7 @@ def coupling_qmi(rho_ab: np.ndarray, dims: tuple[int, int] = (2, 2)) -> float:
     return quantum_mutual_information(rho_ab, dims=list(dims), base=np.e)
 
 
-def coupling_bures(
-    rho_ab: np.ndarray, dims: tuple[int, int] = (2, 2)
-) -> float:
+def coupling_bures(rho_ab: np.ndarray, dims: tuple[int, int] = (2, 2)) -> float:
     """Bures-coupling :math:`d_B(\\rho_{AB}, \\rho_A \\otimes \\rho_B)`.
 
     A transport-theoretic coupling measure (S11 bridge). Zero iff
@@ -143,3 +139,105 @@ def coupling_bures(
     rho_b = partial_trace(rho_ab, keep=[1], dims=list(dims))
     product = quantum_tensor(rho_a, rho_b)
     return bures_distance(rho_ab, product)
+
+
+def sweep_coupling_measures(
+    k_grid: np.ndarray,
+    *,
+    duration: float = 200.0,
+    seed: int = 0,
+) -> dict[str, np.ndarray]:
+    """Sweep all four coupling measures across a grid of Kuramoto coupling strengths.
+
+    For each value *K* in ``k_grid``, simulates one Kuramoto dyad
+    (:func:`simulate_kuramoto_dyad`), builds the time-averaged bipartite density
+    matrix (:func:`joint_density_matrix`), and evaluates all four coupling measures
+    defined in this module.  Returns a dictionary whose five arrays are all of
+    length ``G = len(k_grid)``.
+
+    This function is the computational core that feeds **notebook 04/12** (four-measure
+    sweep: QMI, Bures, PLV, corr against K) and **notebook 04/13** (the *[C] redundancy
+    reveal*: with the naive phase embedding the QMI is near-monotone in PLV, so
+    ``Spearman(PLV, QMI) ~ 1`` across the sweep --- meaning the quantum measure cannot
+    outperform PLV on this embedding by construction; the embedding encodes
+    :math:`\\langle e^{i\\Delta\\theta}\\rangle = \\mathrm{PLV}` directly into the
+    off-diagonal coherence of :math:`\\rho_{AB}`).
+
+    Parameters
+    ----------
+    k_grid : array-like, shape (G,)
+        Coupling strengths to sweep, in rad/s (typically ``np.linspace(0, 4, G)``).
+        Each entry is passed as ``K`` to :func:`simulate_kuramoto_dyad`.
+    duration : float, optional
+        Simulation duration in seconds passed to :func:`simulate_kuramoto_dyad`.
+        Default ``200.0``.  Longer durations reduce Monte-Carlo noise in the phase
+        average and tighten the Spearman correlation (use ≥ 120 s in production; 500 s
+        for near-zero K where the measure is most variable).
+    seed : int, optional
+        RNG seed forwarded to :func:`simulate_kuramoto_dyad` for reproducibility.
+        The *same* seed is used for every K value, so differences across the sweep
+        reflect coupling strength only, not seed variation.  Default ``0``.
+
+    Returns
+    -------
+    dict[str, np.ndarray]
+        Keys and value shapes:
+
+        - ``'K'``    — shape (G,), the input coupling grid (dtype float64).
+        - ``'qmi'``  — shape (G,), quantum mutual information in nats (≥ 0).
+        - ``'bures'`` — shape (G,), Bures coupling distance (≥ 0).
+        - ``'plv'``  — shape (G,), phase-locking value in [0, 1].
+        - ``'corr'`` — shape (G,), |Pearson(cos θ₁, cos θ₂)| in [0, 1].
+
+    When to use
+    -----------
+    Use this function whenever you need all four measures evaluated consistently
+    across a coupling grid (e.g. to produce the 04/12 sweep figure or the 04/13
+    Spearman scatter).  If you only need one measure at a single K, call the
+    individual :func:`coupling_qmi`, :func:`coupling_bures`, :func:`plv`, or
+    :func:`cosine_correlation` directly.
+
+    The canonical defaults for production sweeps are stored in
+    ``config/base.yaml`` under the ``capstone`` key
+    (``sweep_duration_s: 200.0``, ``sweep_seed: 0``).  Quick demos and
+    docstring examples use ``example_duration_s: 120.0`` from the same file.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pathlib import Path
+    >>> from qot_course.utils.config import load_config
+    >>> cfg = load_config(Path(__file__).parents[3] / "config" / "base.yaml")
+    >>> example_dur = cfg["capstone"]["example_duration_s"]   # 120.0
+    >>> example_seed = cfg["capstone"]["sweep_seed"]           # 0
+    >>> grid = np.linspace(0.0, 4.0, 8)
+    >>> sweep = sweep_coupling_measures(grid, duration=example_dur, seed=example_seed)
+    >>> sweep.keys()
+    dict_keys(['K', 'qmi', 'bures', 'plv', 'corr'])
+    >>> sweep['K'].shape
+    (8,)
+    >>> # All four measures should increase with coupling strength:
+    >>> bool(sweep['plv'][-1] > sweep['plv'][0])
+    True
+
+    References
+    ----------
+    Kuramoto, Y. (1984). *Chemical Oscillations, Waves, and Turbulence*.
+    Springer. https://doi.org/10.1007/978-3-642-69689-3
+
+    Lachaux, J.-P., Rodriguez, E., Martinerie, J., & Varela, F. J. (1999).
+    Measuring phase synchrony in brain signals. *Human Brain Mapping*, 8(4), 194--208.
+    https://doi.org/10.1002/hbm.10130
+    """
+    out: dict[str, list[float]] = {
+        key: [] for key in ("K", "qmi", "bures", "plv", "corr")
+    }
+    for k in np.asarray(k_grid, dtype=float):
+        t1, t2 = simulate_kuramoto_dyad(K=float(k), duration=duration, seed=seed)
+        rho = joint_density_matrix(t1, t2)
+        out["K"].append(float(k))
+        out["qmi"].append(coupling_qmi(rho))
+        out["bures"].append(coupling_bures(rho))
+        out["plv"].append(plv(t1, t2))
+        out["corr"].append(abs(cosine_correlation(t1, t2)))
+    return {key: np.asarray(val) for key, val in out.items()}

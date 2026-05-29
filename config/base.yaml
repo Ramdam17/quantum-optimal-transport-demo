@@ -3,3 +3,11 @@ seed: 42
 paths:
   summaries_dir: "summaries"
   docs_dir: "docs"
+
+# Capstone simulation defaults (used by sweep_coupling_measures and the
+# 04/12–04/13 notebooks).  duration_s controls Monte-Carlo averaging quality:
+# shorter values speed up tests; longer values tighten the Spearman correlation.
+capstone:
+  sweep_duration_s: 200.0   # default simulation duration per K value (seconds)
+  sweep_seed: 0             # default RNG seed for reproducibility
+  example_duration_s: 120.0 # duration used in docstring examples and quick demos
