@@ -19,6 +19,7 @@ def find_hardcoded_hex() -> list[str]:
     for nb_path in sorted(ROOT.glob(NEW_NOTEBOOK_GLOB)):
         nb = json.loads(nb_path.read_text())
         for cell in nb.get("cells", []):
+            # Markdown cells are exempt — they may describe colours narratively.
             if cell.get("cell_type") != "code":
                 continue
             for line in cell.get("source", []):

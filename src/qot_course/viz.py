@@ -273,7 +273,7 @@ def plot_density_matrix(rho, title: str = "") -> plt.Figure:
     rho = np.asarray(rho, dtype=complex)
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
     for ax, part, name in zip(axes, (rho.real, rho.imag), ("Re(rho)", "Im(rho)")):
-        im = ax.imshow(part, cmap="RdBu_r", vmin=-1.0, vmax=1.0)
+        im = ax.imshow(part, cmap=CMAP_DENSITY, vmin=-1.0, vmax=1.0)
         ax.set_title(name, pad=10)
         ax.set_xticks(range(part.shape[1]))
         ax.set_yticks(range(part.shape[0]))
@@ -285,7 +285,7 @@ def plot_density_matrix(rho, title: str = "") -> plt.Figure:
                     (j, i),
                     ha="center",
                     va="center",
-                    color="#0d1117",
+                    color=COLORS["text"],
                     fontsize=11,
                 )
         fig.colorbar(im, ax=ax, shrink=0.8)
@@ -301,7 +301,7 @@ def plot_density_matrix(rho, title: str = "") -> plt.Figure:
 _SIMPLEX_VERTICES_2D = np.array(
     [[0.0, 0.0], [1.0, 0.0], [0.5, np.sqrt(3.0) / 2.0]]
 )
-_SIMPLEX_PATH_PALETTE = [FLOW_COLOR, SOURCE_COLOR, TARGET_COLOR, "#0ea5e9", "#ef4444"]
+_SIMPLEX_PATH_PALETTE = [FLOW_COLOR, SOURCE_COLOR, TARGET_COLOR, COLORS["quantum"], COLORS["highlight"]]
 
 
 def _draw_simplex_axes(
@@ -315,7 +315,7 @@ def _draw_simplex_axes(
     """Draw the empty 2-simplex triangle with labelled vertices on ``ax``."""
     v = _SIMPLEX_VERTICES_2D
     triangle = np.vstack([v, v[0:1]])
-    ax.plot(triangle[:, 0], triangle[:, 1], color="#475569", lw=1.5, zorder=1)
+    ax.plot(triangle[:, 0], triangle[:, 1], color=COLORS["muted"], lw=1.5, zorder=1)
     label_offsets = ((-12, -10), (12, -10), (0, 10))
     label_ha = ("right", "left", "center")
     label_va = ("top", "top", "bottom")
@@ -353,7 +353,7 @@ def plot_simplex_points(
     else:
         fig = ax.figure
     _draw_simplex_axes(ax)
-    palette = [SOURCE_COLOR, TARGET_COLOR, FLOW_COLOR, "#0ea5e9", "#ef4444", "#a855f7"]
+    palette = [SOURCE_COLOR, TARGET_COLOR, FLOW_COLOR, COLORS["quantum"], COLORS["highlight"], COLORS["positive"]]
     for k, (name, p) in enumerate(named_points.items()):
         xy = np.asarray(p, dtype=float).ravel() @ _SIMPLEX_VERTICES_2D
         ax.scatter(
@@ -402,7 +402,7 @@ def plot_simplex_paths(
             xy = np.asarray(p, dtype=float).ravel() @ _SIMPLEX_VERTICES_2D
             ax.scatter(
                 *xy,
-                color="#0f172a",
+                color=COLORS["text"],
                 s=80,
                 zorder=4,
                 edgecolor="white",
