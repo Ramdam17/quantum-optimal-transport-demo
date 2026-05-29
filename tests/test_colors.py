@@ -34,3 +34,13 @@ def test_viz_aliases_point_at_palette():
     assert viz.TARGET_COLOR == colors.COLORS["target"]
     assert viz.FLOW_COLOR == colors.COLORS["flow"]
     assert viz.CMAP_PLAN is colors.CMAP_PLAN
+
+
+def test_use_course_style_applies_charter():
+    import matplotlib as mpl
+    from qot_course import viz
+    viz.use_course_style()
+    assert mpl.rcParams["grid.color"] == colors.COLORS["grid"]
+    assert mpl.rcParams["text.color"] == colors.COLORS["text"]
+    assert mpl.rcParams["figure.dpi"] == 110
+    assert mpl.rcParams["axes.titlesize"] == 14  # charter title size
