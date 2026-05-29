@@ -32,6 +32,9 @@ packages = ["src/qot_course"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v"
+markers = [
+    "notebooks: executes course notebooks end-to-end (slow; deselect with -m 'not notebooks')",
+]
 
 [tool.ruff]
 line-length = 88
