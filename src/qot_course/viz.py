@@ -12,12 +12,13 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Vibrant, consistent palette used across the whole course.
-SOURCE_COLOR = "#7c3aed"  # violet — the distribution we have
-TARGET_COLOR = "#f59e0b"  # amber  — the distribution we want
-FLOW_COLOR = "#10b981"  # emerald — mass in motion
-CMAP_COST = "magma"  # cost matrices
-CMAP_PLAN = "plasma"  # transport plans (mass)
+# Palette lives in qot_course.colors (single source of truth). These names are
+# kept as backward-compatible aliases for the existing notebooks.
+from qot_course.colors import COLORS, CMAP_COST, CMAP_PLAN, CMAP_DENSITY
+
+SOURCE_COLOR = COLORS["source"]  # the distribution we have
+TARGET_COLOR = COLORS["target"]  # the distribution we want
+FLOW_COLOR = COLORS["flow"]      # mass in motion
 
 _STYLE = {
     "figure.facecolor": "white",

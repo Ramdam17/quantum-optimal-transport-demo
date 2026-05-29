@@ -26,3 +26,11 @@ def test_colormaps_are_matplotlib_colormaps():
 def test_density_colormap_is_diverging_white_centre():
     mid = colors.CMAP_DENSITY(0.5)
     assert mid[0] > 0.95 and mid[1] > 0.95 and mid[2] > 0.95  # white midpoint
+
+
+def test_viz_aliases_point_at_palette():
+    from qot_course import viz
+    assert viz.SOURCE_COLOR == colors.COLORS["source"]
+    assert viz.TARGET_COLOR == colors.COLORS["target"]
+    assert viz.FLOW_COLOR == colors.COLORS["flow"]
+    assert viz.CMAP_PLAN is colors.CMAP_PLAN
