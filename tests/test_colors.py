@@ -44,3 +44,11 @@ def test_use_course_style_applies_charter():
     assert mpl.rcParams["text.color"] == colors.COLORS["text"]
     assert mpl.rcParams["figure.dpi"] == 110
     assert mpl.rcParams["axes.titlesize"] == 14  # charter title size
+
+
+def test_show_palette_builds_a_figure():
+    import matplotlib
+    matplotlib.use("Agg")
+    from scripts.show_palette import build_swatch_figure
+    fig = build_swatch_figure()
+    assert fig.axes  # at least one axis drawn
