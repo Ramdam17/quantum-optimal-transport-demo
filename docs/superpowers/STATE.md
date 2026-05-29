@@ -23,7 +23,7 @@ visual sign-off on the palette via `scripts/show_palette.py`. Then Plan B (folde
 - **Plan A — charter foundation** ✍️ written (this is the next to execute).
 - **Plan B — folder reorg** (create `00..04`, `git mv` the 16 in as seed syntheses, fix cross-refs).
 - **Plans C–G — per module** (00, 01, 02, 03, 04): bricks→syntheses, one notebook at a time.
-- **Plan H — open-source meta** (README, CONTRIBUTING, LICENSE — "super super open"; license TBD).
+- **Plan H — open-source meta** (README, CONTRIBUTING, LICENSE = **MIT code + CC-BY-4.0 content**; warm README/CONTRIBUTING in the charter voice).
 
 ## Locked decisions
 
@@ -35,6 +35,7 @@ visual sign-off on the palette via `scripts/show_palette.py`. Then Plan B (folde
 - D6 Total ≈ **57** notebooks.
 - D7 Apply PPSP house style (palette centralized, no hardcoded hex, fixed fig dims), adapted to matplotlib.
 - D8 **Voice = warm, empowering, celebratory** (audience incl. a self-love-affirmation learner): celebrate accomplishment, frame difficulty as growth, ban "obviously/simply/trivially/just"; **no decorative emojis**; rigor intact.
+- D9 License: **MIT (code) + CC-BY-4.0 (content)** — open with attribution (applied in Plan H).
 
 ## Open questions
 
