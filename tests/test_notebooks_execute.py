@@ -5,7 +5,7 @@ checkpoints run the full suite. Every cell runs on ``AerSimulator`` / ``FakeMani
 no network and no IBM credentials required. The notebook object is executed in memory, so the
 committed files stay output-free.
 
-Scope is modules 00 and 01 (Plan C); later plans widen ``NOTEBOOK_GLOB``.
+Scope grows by plan: modules 00–01 (Plan C), 02 (Plan D); later plans widen ``NOTEBOOK_GLOB``.
 See ``docs/superpowers/plans/2026-05-28-plan-c-foundations.md`` (decision C-3).
 """
 
@@ -18,7 +18,7 @@ import pytest
 from nbclient import NotebookClient
 
 ROOT = Path(__file__).resolve().parents[1]
-NOTEBOOK_GLOB = "notebooks/0[01]_*/[0-9][0-9]_*.ipynb"
+NOTEBOOK_GLOB = "notebooks/0[012]_*/[0-9][0-9]_*.ipynb"
 CELL_TIMEOUT = 180  # seconds per cell — generous for the qiskit / tomography cells
 
 
