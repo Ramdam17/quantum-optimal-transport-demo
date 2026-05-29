@@ -52,3 +52,9 @@ def test_show_palette_builds_a_figure():
     from scripts.show_palette import build_swatch_figure
     fig = build_swatch_figure()
     assert fig.axes  # at least one axis drawn
+
+
+def test_no_hardcoded_hex_checker_runs_clean_on_new_notebooks():
+    from scripts.check_no_hardcoded_hex import find_hardcoded_hex
+    offenders = find_hardcoded_hex()
+    assert offenders == [], f"hardcoded hex found: {offenders}"
