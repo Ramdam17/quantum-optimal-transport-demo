@@ -14,9 +14,16 @@
 
 ## Next action
 
-Write the **build plan** (writing-plans skill) — per-notebook contracts for the ~57 notebooks
-(concept, prerequisites, required contents, source cells to mine, synthesis link). Then finalize
-the graphic charter (palette module), then reorganize folders, then build one notebook at a time.
+**Execute Plan A — charter foundation**: `docs/superpowers/plans/2026-05-28-charter-foundation.md`
+(palette module + viz refactor + style + swatch + no-hex guard + notebook template). Get Rémy's
+visual sign-off on the palette via `scripts/show_palette.py`. Then Plan B (folder reorg).
+
+## Build roadmap (phased plans — each its own `docs/superpowers/plans/2026-05-28-*.md`)
+
+- **Plan A — charter foundation** ✍️ written (this is the next to execute).
+- **Plan B — folder reorg** (create `00..04`, `git mv` the 16 in as seed syntheses, fix cross-refs).
+- **Plans C–G — per module** (00, 01, 02, 03, 04): bricks→syntheses, one notebook at a time.
+- **Plan H — open-source meta** (README, CONTRIBUTING, LICENSE — "super super open"; license TBD).
 
 ## Locked decisions
 
@@ -41,10 +48,11 @@ the graphic charter (palette module), then reorganize folders, then build one no
 - [x] Reviewed PPSP house style (ConnectivityMetricsTutorials) — see memory `ppsp-tutorial-house-style`.
 - [x] Brainstormed + locked the target structure (this STATE + the design spec).
 - [x] Spec reviewed & approved by Rémy; charter voice/tone + no-emoji locked (D8).
+- [x] Build plan decomposed (A–H); **Plan A (charter) written** and committed.
 
 ### Not started — build (one notebook at a time, commit each, tick here)
-- [ ] Build plan written (writing-plans) and reviewed.
-- [ ] Charter finalized (palette module + `use_course_style`).
+- [ ] Plans B–H written (Plan A done — see Build roadmap above).
+- [ ] Charter finalized (execute Plan A: palette module + `use_course_style`) + palette visual sign-off.
 - [ ] Folders created + 16 current notebooks reorganized as seed syntheses.
 - [ ] `00_GettingStarted` (2)
 - [ ] `01_QuantumFoundations` (11)
