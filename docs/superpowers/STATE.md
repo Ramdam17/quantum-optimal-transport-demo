@@ -4,8 +4,8 @@
 > session. Read it (plus the design spec) at the start of every session, especially after a
 > compaction / `/clear` / new conversation.
 
-**Last updated:** 2026-05-28
-**Phase:** Design complete → next is the build plan.
+**Last updated:** 2026-05-28 (Plan A — charter foundation — complete)
+**Phase:** Charter foundation done → next is Plan B (folder reorg).
 **Canonical structure:** `docs/superpowers/specs/2026-05-28-qot-course-restructure-design.md`
 **Audit (rationale):** `docs/audit-notebooks-2026-05-28.md`
 **Standing rules:** root `CLAUDE.md`
@@ -14,9 +14,9 @@
 
 ## Next action
 
-**Execute Plan A — charter foundation**: `docs/superpowers/plans/2026-05-28-charter-foundation.md`
-(palette module + viz refactor + style + swatch + no-hex guard + notebook template). Get Rémy's
-visual sign-off on the palette via `scripts/show_palette.py`. Then Plan B (folder reorg).
+**Execute Plan B — folder reorg**: create `00_GettingStarted`..`04_QuantumOptimalTransport`
+module folders, `git mv` the 16 current notebooks in as seed syntheses, fix cross-refs.
+Palette visual sign-off is pending — run `uv run python scripts/show_palette.py` first.
 
 ## Build roadmap (phased plans — each its own `docs/superpowers/plans/2026-05-28-*.md`)
 
@@ -39,7 +39,7 @@ visual sign-off on the palette via `scripts/show_palette.py`. Then Plan B (folde
 
 ## Open questions
 
-- Exact QOT palette definition — DECIDE in charter phase. (Emoji + voice/tone now locked — see D8.)
+- _(none — palette signed off by Rémy 2026-05-28; charter fully locked.)_
 
 ## Progress checklist
 
@@ -53,7 +53,7 @@ visual sign-off on the palette via `scripts/show_palette.py`. Then Plan B (folde
 
 ### Not started — build (one notebook at a time, commit each, tick here)
 - [ ] Plans B–H written (Plan A done — see Build roadmap above).
-- [ ] Charter finalized (execute Plan A: palette module + `use_course_style`) + palette visual sign-off.
+- [x] Charter finalized (palette module + `use_course_style`)
 - [ ] Folders created + 16 current notebooks reorganized as seed syntheses.
 - [ ] `00_GettingStarted` (2)
 - [ ] `01_QuantumFoundations` (11)
