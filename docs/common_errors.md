@@ -94,8 +94,8 @@ frontier).
 **The intuition.** Both go to zero as two states coincide, so they must be the same quantity.
 
 **What is really going on.** The Bures distance is `d_B(ρ, σ) = √(2(1 − √F))`, the quantum
-Fisher–Rao distance — not `1 − F`, and not its square. Keep track of whether a function returns the
-distance or its square.
+Fisher–Rao distance built from the Uhlmann fidelity `F` — not `1 − F`, and not its square. Keep track
+of whether a function returns the distance or its square.
 
 **Where the course shows it.** `02/12` (the Bures distance), `05/05` (Bures on hardware).
 

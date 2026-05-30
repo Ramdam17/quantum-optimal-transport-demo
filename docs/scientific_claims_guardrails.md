@@ -49,8 +49,10 @@ its own, an entanglement measure.
 QPU it is **not resolvable today**, and the course quantifies by how much it falls short.
 
 **May not:** "We demonstrated quantum-optimal-transport coupling detection on real quantum hardware."
-— No. The simulated effect is ≈ 0.004 nats; a device's statistical band on the relevant quantity is
-larger (≈ 0.012 nats on `ibm_marrakesh`), so a single run cannot resolve it.
+— No. The simulated effect is ≈ 0.004 nats; a device's statistical band on a single absolute QMI is
+already larger (≈ 0.012 nats on `ibm_marrakesh`), so one run cannot resolve it — and for the
+*discrimination* the binding limit is the band of the difference, ≈ √2·σ_stat (see §5), not this
+absolute band.
 
 **Why:** Keep "the effect exists" (a simulation result) and "current hardware can measure it" (false,
 today) as separate statements. Resolving the effect would need far more shots *and* error mitigation
