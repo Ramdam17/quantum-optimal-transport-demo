@@ -103,6 +103,10 @@ def select_backend(use_hardware: bool = False, fake: str = "FakeManilaV2"):
         backend = get_backend(prefer_hardware=True)
         if not isinstance(backend, AerSimulator):
             return backend, f"{backend.name} (real IBM QPU)", True
-        return backend, "AerSimulator (ideal — hardware unavailable, check credentials)", False
+        return (
+            backend,
+            "AerSimulator (ideal — hardware unavailable, check credentials)",
+            False,
+        )
     backend = get_noisy_backend(fake)
     return backend, f"AerSimulator[{fake} noise model] (offline)", False

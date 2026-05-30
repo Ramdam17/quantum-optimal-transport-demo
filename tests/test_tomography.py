@@ -17,7 +17,9 @@ def _run(circuits_by_setting, backend, shots=1 << 15, seed=7):
         from qiskit import transpile
 
         tqc = transpile(qc, backend)
-        counts = backend.run(tqc, shots=shots, seed_simulator=seed).result().get_counts()
+        counts = (
+            backend.run(tqc, shots=shots, seed_simulator=seed).result().get_counts()
+        )
         out[setting] = counts
     return out
 
@@ -40,9 +42,9 @@ def test_density_from_counts_returns_physical_state():
     counts = _run(tomo.single_qubit_tomography_circuits(prep), get_noisy_backend())
     rho = tomo.density_from_counts(counts, n_qubits=1)
     evals = np.linalg.eigvalsh(rho)
-    assert (evals > -1e-9).all()                       # PSD after projection
+    assert (evals > -1e-9).all()  # PSD after projection
     assert np.isclose(np.trace(rho).real, 1.0, atol=1e-6)
-    assert np.allclose(rho, rho.conj().T, atol=1e-9)   # Hermitian
+    assert np.allclose(rho, rho.conj().T, atol=1e-9)  # Hermitian
 
 
 def test_two_qubit_bell_qmi_near_two_noiseless():

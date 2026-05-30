@@ -109,9 +109,7 @@ def _project_physical(rho: np.ndarray) -> np.ndarray:
     return (vecs * vals) @ vecs.conj().T
 
 
-def density_from_counts(
-    counts_by_setting: dict, n_qubits: int
-) -> np.ndarray:
+def density_from_counts(counts_by_setting: dict, n_qubits: int) -> np.ndarray:
     """Reconstruct a density matrix from Pauli-basis measurement counts.
 
     Parameters

@@ -64,4 +64,4 @@ def test_select_backend_hardware_without_creds_falls_back_honestly(monkeypatch):
     monkeypatch.setattr(rt, "_make_runtime_service", _raise)
     backend, label, is_real = rt.select_backend(use_hardware=True)
     assert isinstance(backend, AerSimulator)  # graceful fallback
-    assert is_real is False                    # and honest about it
+    assert is_real is False  # and honest about it
