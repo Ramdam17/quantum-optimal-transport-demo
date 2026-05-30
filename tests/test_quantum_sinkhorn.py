@@ -10,6 +10,7 @@ from qot_course.quantum_ot.sdp import (
 )
 from qot_course.quantum_ot.sinkhorn import (
     matrix_gibbs_kernel,
+    operator_sinkhorn,
     quantum_sinkhorn_cost,
     quantum_sinkhorn_sdp,
     umegaki_kl_to_kernel,
@@ -152,3 +153,26 @@ def test_entropic_qot_still_distinguishes_plus_from_mixed():
     # Even with entropy regularisation, the transport cost is positive.
     cost_value = quantum_sinkhorn_cost(rho_a, rho_b, C, epsilon=0.3)
     assert cost_value > 1e-3
+
+
+# ----------------------------- Operator (quantum) Sinkhorn iteration ----- #
+def test_operator_sinkhorn_matches_marginals():
+    rho_a = np.diag([0.6, 0.4]).astype(complex)
+    rho_b = np.diag([0.3, 0.7]).astype(complex)
+    C = quadratic_position_cost([0.0, 1.0])
+    P, log = operator_sinkhorn(rho_a, rho_b, C, epsilon=0.3)
+    np.testing.assert_allclose(partial_trace(P, keep=[0], dims=[2, 2]), rho_a, atol=1e-8)
+    np.testing.assert_allclose(partial_trace(P, keep=[1], dims=[2, 2]), rho_b, atol=1e-8)
+    assert log["marginal_errors"][-1] < 1e-8
+    assert log["marginal_errors"][-1] <= log["marginal_errors"][0]
+
+
+def test_operator_sinkhorn_equals_sdp_in_commuting_case():
+    # Diagonal states + diagonal cost commute -> operator scaling == von-Neumann SDP plan.
+    rho_a = np.diag([0.6, 0.4]).astype(complex)
+    rho_b = np.diag([0.3, 0.7]).astype(complex)
+    C = quadratic_position_cost([0.0, 1.0])
+    eps = 0.3
+    P_iter, _ = operator_sinkhorn(rho_a, rho_b, C, epsilon=eps)
+    _, P_sdp = quantum_sinkhorn_sdp(rho_a, rho_b, C, epsilon=eps)
+    np.testing.assert_allclose(P_iter, P_sdp, atol=1e-6)

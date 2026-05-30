@@ -102,3 +102,22 @@ def test_plv_extremes():
     # Identical phases → PLV = 1.
     same = rng.uniform(0, 2 * np.pi, size=n)
     assert plv(same, same) == pytest.approx(1.0)
+
+
+# ----------------------------- Sweep & [C] redundancy ------------------- #
+from scipy.stats import spearmanr  # noqa: E402
+
+from qot_course.quantum_ot.capstone import sweep_coupling_measures  # noqa: E402
+
+
+def test_naive_embedding_qmi_is_redundant_with_plv():
+    """The [C] redundancy: with the naive phase embedding, quantum mutual information
+    is near-monotone in PLV across a coupling sweep (Spearman ~ 1) -- so on this
+    embedding the quantum measure cannot beat PLV, by construction."""
+    grid = np.linspace(0.0, 4.0, 12)
+    sweep = sweep_coupling_measures(grid, duration=120.0, seed=0)
+    # returns equal-length arrays keyed by measure
+    assert set(sweep) >= {"K", "qmi", "bures", "plv", "corr"}
+    assert all(len(sweep[k]) == len(grid) for k in ("K", "qmi", "bures", "plv", "corr"))
+    rho_s, _ = spearmanr(sweep["plv"], sweep["qmi"])
+    assert rho_s > 0.95
