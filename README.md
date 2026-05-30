@@ -5,7 +5,7 @@ a controlled demonstration of *when* quantum optimal transport reads coupling st
 phase-locking value (PLV) cannot.
 
 The course is built **one concept per notebook**: short, focused "bricks" build progressively to a
-"synthesis" notebook, so each idea lands before the next arrives. **57 notebooks across 5 modules**,
+"synthesis" notebook, so each idea lands before the next arrives. **63 notebooks across 6 modules**,
 sized for ~1-hour sessions and a mixed-background audience, and meant to be worked through with an AI
 tutor alongside.
 
@@ -50,6 +50,8 @@ Five module folders — plain `.ipynb` (not Jupyter Book), per-module numbering 
   bridge.
 - **`04_QuantumOptimalTransport`** — the quantum coupling SDP, quantum Sinkhorn, the QOT "zoo", and the
   A+B+C capstone.
+- **`05_RealQuantumHardware`** — run the course's results (Born rule, tomography, quantum mutual
+  information, Bures distance, the capstone) on a real IBM QPU through the runtime primitives.
 
 Each notebook declares its prerequisites and builds on the ones before it. To find which notebook
 covers a concept (and what it builds on), read **`llms.txt`** or ask your assistant.
@@ -73,6 +75,11 @@ Treat the assistant as a patient tutor, not an answer key — you'll learn far m
 Real IBM Quantum hardware is optional and the course is simulator-first. Never hardcode an API token.
 Run `QiskitRuntimeService.save_account(...)` once locally (or put the token in a git-ignored `.env`);
 notebooks then call `QiskitRuntimeService()` with no token.
+
+Module `05_RealQuantumHardware` is where this happens in practice: each notebook has a
+`USE_HARDWARE` switch — `False` (the default) runs offline on a noisy fake backend; `True` runs on
+a real QPU once your account is set up (`save_account`, or a git-ignored `.env` with
+`IBM_QUANTUM_TOKEN`).
 
 ## License
 
