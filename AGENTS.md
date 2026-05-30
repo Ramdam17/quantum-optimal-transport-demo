@@ -28,7 +28,7 @@ The point of this course is for the learner to *understand*, not to collect answ
 
 - `notebooks/` — the course, **one concept per notebook**, grouped by module: `00_GettingStarted`,
   `01_QuantumFoundations`, `02_InformationAndGeometry`, `03_ClassicalOptimalTransport`,
-  `04_QuantumOptimalTransport`. Short "brick" notebooks build to a "synthesis" notebook per topic.
+  `04_QuantumOptimalTransport`, `05_RealQuantumHardware`. Short "brick" notebooks build to a "synthesis" notebook per topic.
   *(Restructuring in progress — see the README banner.)*
 - `src/qot_course/` — the library the notebooks import (`quantum`, `infotheory`, `transport`,
   `quantum_ot`, `geometry`, `viz`, `colors`). Validated by `tests/`.
