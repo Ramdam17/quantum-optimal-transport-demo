@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "A hands-on course from classical optimal transport to quantum optimal transport"
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "LICENSE-CONTENT"]
+authors = [{ name = "Rémy Ramadour" }]
 dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
