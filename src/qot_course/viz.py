@@ -248,7 +248,15 @@ def plot_bloch(state, title: str = "") -> plt.Figure:
 
     from qot_course.quantum.states import bloch_vector
 
-    return plot_bloch_vector(list(bloch_vector(state)), title=title)
+    # Render onto our own 3D axes so Qiskit does not auto-close the figure
+    # under an inline (Jupyter) backend. When given an ``ax``, plot_bloch_vector
+    # draws in place and returns None instead of closing the figure (which is
+    # what it does otherwise, via matplotlib_close_if_inline). Returning the
+    # live figure lets plt.show() / inline auto-display render it as usual.
+    fig = plt.figure(figsize=(5, 5))
+    ax = fig.add_subplot(projection="3d")
+    plot_bloch_vector(list(bloch_vector(state)), title=title, ax=ax)
+    return fig
 
 
 def plot_counts(counts: dict[str, int], ax: plt.Axes | None = None) -> plt.Figure:
