@@ -5,7 +5,7 @@ a controlled demonstration of *when* quantum optimal transport reads coupling st
 phase-locking value (PLV) cannot.
 
 The course is built **one concept per notebook**: short, focused "bricks" build progressively to a
-"synthesis" notebook, so each idea lands before the next arrives. **63 notebooks across 6 modules**,
+"synthesis" notebook, so each idea lands before the next arrives. **71 notebooks across 6 modules**,
 sized for ~1-hour sessions and a mixed-background audience, and meant to be worked through with an AI
 tutor alongside.
 
@@ -43,7 +43,8 @@ English.
 Five module folders — plain `.ipynb` (not Jupyter Book), per-module numbering `NN_snake_title.ipynb`:
 
 - **`00_GettingStarted`** — environment setup, and what optimal transport is.
-- **`01_QuantumFoundations`** — qubits, density matrices, composite systems, channels.
+- **`01_QuantumFoundations`** — qubits and complex amplitudes, the inner product, gates (Pauli,
+  Hadamard, phase/rotations, CNOT) and expectation values, density matrices, composite systems, channels.
 - **`02_InformationAndGeometry`** — classical & quantum information theory, the Fisher–Rao and Bures
   geometries.
 - **`03_ClassicalOptimalTransport`** — Monge/Kantorovich, Wasserstein, Sinkhorn, the Gaussian/Bures

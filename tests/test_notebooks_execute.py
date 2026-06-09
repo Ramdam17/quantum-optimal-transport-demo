@@ -5,7 +5,8 @@ checkpoints run the full suite. Every cell runs on ``AerSimulator`` / ``FakeMani
 no network and no IBM credentials required. The notebook object is executed in memory, so the
 committed files stay output-free.
 
-Scope grows by plan: 00–01 (Plan C), 02 (Plan D), 03 (Plan E), 04 (Plan F), 05 (Plan I); later plans widen ``NOTEBOOK_GLOB``.
+Scope grows by plan: 00–01 (Plan C), 02 (Plan D), 03 (Plan E), 04 (Plan F), 05 (Plan I),
+module-01 mechanics layer / 19 notebooks (Plan K); later plans widen ``NOTEBOOK_GLOB``.
 See ``docs/superpowers/plans/2026-05-28-plan-c-foundations.md`` (decision C-3).
 """
 
