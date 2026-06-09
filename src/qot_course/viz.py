@@ -243,10 +243,21 @@ def plot_transport_arrows(
 
 
 def plot_bloch(state, title: str = "") -> plt.Figure:
-    """Plot a pure qubit state on the Bloch sphere (via Qiskit)."""
+    """Plot a qubit state on the Bloch sphere (via Qiskit).
+
+    Accepts either a pure-state ket (length-2 vector, placed on the surface) or
+    a 2x2 density matrix (mixed states land inside the ball, the Bloch vector
+    shrinking toward the centre as purity falls).
+    """
     from qiskit.visualization import plot_bloch_vector
 
-    from qot_course.quantum.states import bloch_vector
+    arr = np.asarray(state, dtype=complex)
+    if arr.shape == (2, 2):
+        # Density matrix: r = (tr(rho X), tr(rho Y), tr(rho Z)); length < 1 when mixed.
+        from qot_course.quantum.density import bloch_vector
+    else:
+        # Pure-state ket on the unit sphere.
+        from qot_course.quantum.states import bloch_vector
 
     # Render onto our own 3D axes so Qiskit does not auto-close the figure
     # under an inline (Jupyter) backend. When given an ``ax``, plot_bloch_vector
@@ -255,7 +266,7 @@ def plot_bloch(state, title: str = "") -> plt.Figure:
     # live figure lets plt.show() / inline auto-display render it as usual.
     fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(projection="3d")
-    plot_bloch_vector(list(bloch_vector(state)), title=title, ax=ax)
+    plot_bloch_vector(list(bloch_vector(arr)), title=title, ax=ax)
     return fig
 
 
@@ -276,15 +287,39 @@ def plot_counts(counts: dict[str, int], ax: plt.Axes | None = None) -> plt.Figur
     return fig
 
 
-def plot_density_matrix(rho, title: str = "") -> plt.Figure:
-    """Show the real and imaginary parts of a density matrix as annotated heatmaps."""
+def plot_density_matrix(
+    rho, title: str = "", basis_labels: list[str] | None = None
+) -> plt.Figure:
+    """Show the real and imaginary parts of a density matrix as annotated heatmaps.
+
+    Parameters
+    ----------
+    rho : array_like, shape (n, n)
+        Density matrix to display.
+    title : str
+        Figure suptitle.
+    basis_labels : list[str] | None
+        Tick labels for the n rows/columns, in row order. Use these to name the
+        basis a matrix is written in, e.g. ``["|00>", "|01>", "|10>", "|11>"]``
+        for a two-qubit system. When ``None`` (default) the axes show integer
+        indices 0..n-1 — appropriate when the basis is not a qubit tensor basis
+        (e.g. QOT transport plans / Gibbs states of arbitrary dimension).
+    """
     rho = np.asarray(rho, dtype=complex)
+    n = rho.shape[0]
+    if basis_labels is not None and len(basis_labels) != n:
+        raise ValueError(
+            f"basis_labels has {len(basis_labels)} entries but rho is {n}x{n}"
+        )
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
     for ax, part, name in zip(axes, (rho.real, rho.imag), ("Re(rho)", "Im(rho)")):
         im = ax.imshow(part, cmap=CMAP_DENSITY, vmin=-1.0, vmax=1.0)
         ax.set_title(name, pad=10)
         ax.set_xticks(range(part.shape[1]))
         ax.set_yticks(range(part.shape[0]))
+        if basis_labels is not None:
+            ax.set_xticklabels(basis_labels)
+            ax.set_yticklabels(basis_labels)
         ax.grid(False)
         for i in range(part.shape[0]):
             for j in range(part.shape[1]):
