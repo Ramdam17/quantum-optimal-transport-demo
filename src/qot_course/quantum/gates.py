@@ -47,9 +47,7 @@ PAULI_Z = np.array([[1.0, 0.0], [0.0, -1.0]], dtype=complex)
 HADAMARD = np.array([[1.0, 1.0], [1.0, -1.0]], dtype=complex) / np.sqrt(2)
 S = np.array([[1.0, 0.0], [0.0, 1.0j]], dtype=complex)
 S_DAG = S.conj().T
-CNOT = np.array(
-    [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex
-)
+CNOT = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex)
 
 
 def phase_gate(lmbda: float) -> np.ndarray:
