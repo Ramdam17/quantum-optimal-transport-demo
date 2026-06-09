@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import numpy as np
 
+from qot_course.quantum.gates import PAULI_X, PAULI_Y, PAULI_Z
+
 KET_0 = np.array([1.0, 0.0], dtype=complex)
 KET_1 = np.array([0.0, 1.0], dtype=complex)
 KET_PLUS = np.array([1.0, 1.0], dtype=complex) / np.sqrt(2)
 KET_MINUS = np.array([1.0, -1.0], dtype=complex) / np.sqrt(2)
 
-_PAULI = {
-    "X": np.array([[0.0, 1.0], [1.0, 0.0]], dtype=complex),
-    "Y": np.array([[0.0, -1.0j], [1.0j, 0.0]], dtype=complex),
-    "Z": np.array([[1.0, 0.0], [0.0, -1.0]], dtype=complex),
-}
+# Single public source for the Pauli matrices (see qot_course.quantum.gates).
+_PAULI = {"X": PAULI_X, "Y": PAULI_Y, "Z": PAULI_Z}
 
 
 def qubit_state(theta: float, phi: float = 0.0) -> np.ndarray:
