@@ -48,11 +48,18 @@ quantum   total correlation       : triadic=0.23  null=0.00  gap=0.23   (voit au
 → **Pas d'avantage de détection** : les deux voient le couplage triadique (R2 confirmé au multipartite).
 
 **Q1 — « une mesure principielle vs un zoo » : NON, ce n'est pas un avantage.** Honnêteté : le
-classique possède **déjà** des mesures multivariées uniques et principielles — total correlation
-(Watanabe 1960), interaction information (McGill 1954), et surtout l'**O-information** (Rosas,
-Mediano, Gastpar & Jensen 2019, *Phys. Rev. E* 100, 032305, DOI:10.1103/PhysRevE.100.032305 —
-activement utilisée en neuro). La TC quantique ne fait que les dupliquer. **À ne pas vendre comme
-un atout quantique.**
+classique possède **déjà** une mesure multivariée unique et principielle, et incontestée —
+la **total correlation** (Watanabe 1960 ; = interaction information de McGill 1954 dans le cas
+multivarié). C'est exactement ce que Track A calcule (gap 2.19, bedrock de la théorie de
+l'information). La TC quantique ne fait que la dupliquer. **À ne pas vendre comme un atout quantique.**
+
+> **Mise en garde (Rémy, 2026-06-10).** On **n'ancre pas** ce point sur l'**O-information** ni sur le
+> programme *synergie / émergence / information intégrée* (Rosas, Mediano, Luppi… ; p. ex. l'application
+> à la conscience dans eLife 2024, DOI:10.7554/eLife.88173). La *formule* O-information est bien
+> définie, mais son **overlay interprétatif est contesté** (l'IIT a été publiquement qualifiée de
+> pseudoscience par ~120 chercheurs en 2023), et Rémy n'a pas confiance dans ces travaux. Le point Q1
+> tient **sans eux**, sur la total correlation de Watanabe (60 ans, non contestée). On ne construit
+> rien sur le programme contesté.
 
 **Q2 — la géométrie : le différenciateur réel (WIN honnête).** Test décisif : deux configurations à
 **total correlation appariée** mais structure différente (une *triadique*, une *par-paires*, accordées
@@ -119,8 +126,9 @@ exclusive, sur données classiques — confirmé à N=3.** C'est le garde-fou d'
 
 1. **Track A, recentrée Q2** = le seul candidat solide pour des notebooks : une **géométrie de
    transport/Bures sur les configurations de couplage multipartite**, positionnée *honnêtement*
-   contre l'O-information (le standard classique multivarié) — l'apport est la **métrique canonique
-   inter-configurations**, pas la détection ni un premier scalaire multivarié.
+   contre la **total correlation classique (Watanabe)** — l'apport est la **métrique canonique
+   inter-configurations**, pas la détection ni un premier scalaire multivarié. (On se positionne
+   contre le standard incontesté, **pas** contre l'O-information / le programme synergie-émergence.)
 2. **Le test à passer avant tout notebook A** : montrer que la métrique de Bures fait quelque chose
    d'*utile* qu'un classique ne fait pas — p. ex. classer/clusteriser des configurations de couplage
    de façon stable, ou définir une géodésique entre régimes de couplage. Sinon A reste « joli mais
@@ -132,16 +140,20 @@ exclusive, sur données classiques — confirmé à N=3.** C'est le garde-fou d'
 
 ## Références (vérifiées)
 
-- F. Rosas, P. A. M. Mediano, M. Gastpar & H. J. Jensen, "Quantifying high-order interdependencies
-  via multivariate extensions of the mutual information", *Phys. Rev. E* **100**, 032305 (2019).
-  DOI:10.1103/PhysRevE.100.032305 (arXiv:1902.11239). *(vérifiée par recherche web)* — l'O-information :
-  le standard classique multivarié dont Track A doit se distinguer (et donc la raison d'abandonner Q1).
+**Le baseline classique sur lequel on s'appuie (incontesté) :**
 - S. Watanabe, "Information theoretical analysis of multivariate correlation", *IBM J. Res. Dev.* **4**,
-  66–82 (1960) — total correlation (multi-information). *(classique ; confirmer le DOI avant usage externe.)*
+  66–82 (1960) — total correlation / multi-information : la mesure multivariée principielle unique que
+  Track A calcule. *(classique ; confirmer le DOI exact avant usage externe.)*
 - W. J. McGill, "Multivariate information transmission", *Psychometrika* **19**, 97–116 (1954) —
-  interaction information. *(classique ; confirmer le DOI avant usage externe.)*
+  interaction information. *(classique ; confirmer le DOI exact avant usage externe.)*
 - M. M. Wilde, *Quantum Information Theory*, 2nd ed. (CUP, 2017). DOI:10.1017/9781316809976 — entropies
   quantiques, QMI, total correlation quantique.
 
-> Note : refs O-information vérifiée en ligne ; Watanabe/McGill sont des classiques bien établis mais
-> leurs DOI exacts restent à confirmer avant toute citation externe (pas de DOI inventé ici).
+**Programme contesté — cité pour le situer, PAS pour s'appuyer dessus :**
+- F. Rosas, P. A. M. Mediano, M. Gastpar & H. J. Jensen, "Quantifying high-order interdependencies via
+  multivariate extensions of the mutual information", *Phys. Rev. E* **100**, 032305 (2019).
+  DOI:10.1103/PhysRevE.100.032305 — l'O-information (formule bien définie ; overlay synergie/émergence contesté).
+- A. I. Luppi, P. A. M. Mediano, F. E. Rosas et al., "A synergistic workspace for human consciousness
+  revealed by Integrated Information Decomposition", *eLife* **12** (2024). DOI:10.7554/eLife.88173 —
+  application à la conscience (IIT/Global Workspace). **Rémy : faible confiance ; on ne construit pas dessus.**
+  (Métadonnées via PubMed.)
