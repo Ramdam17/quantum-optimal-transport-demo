@@ -72,3 +72,79 @@ def test_amplitude_and_covariance_embeddings_are_valid_states():
     psi = amplitude_phase_state(theta, amp=np.abs(np.cos(theta)))
     np.testing.assert_allclose(np.sum(np.abs(psi) ** 2, axis=1), 1.0, atol=1e-12)
     assert _is_state(covariance_density(theta))
+
+
+# --- Research extension (2026-06): weighted multifreq + entangling joint density ---
+
+from qot_course.quantum_ot.embeddings import (  # noqa: E402
+    weighted_multifreq_state,
+    entangling_joint_density,
+    controlled_shift_unitary,
+)
+
+
+def test_weighted_multifreq_equal_weights_matches_multifreq():
+    theta = np.linspace(0, 2 * np.pi, 60, endpoint=False)
+    np.testing.assert_allclose(
+        weighted_multifreq_state(theta, harmonics=(1, 2), weights=None),
+        multifreq_state(theta, harmonics=(1, 2)),
+        atol=1e-12,
+    )
+
+
+def test_weighted_multifreq_is_normalised_per_sample():
+    theta = np.linspace(0, 2 * np.pi, 40, endpoint=False)
+    psi = weighted_multifreq_state(theta, harmonics=(1, 2), weights=(1.0, 0.2, 2.0))
+    np.testing.assert_allclose(np.sum(np.abs(psi) ** 2, axis=1), 1.0, atol=1e-12)
+
+
+def test_weighted_multifreq_second_moment_channel_closed_form():
+    # Constant phase difference delta: rho[6,2] = w0^2 w2^2 <e^{2i delta}> (normalised w).
+    # With delta constant, |<e^{2i delta}>| = 1, so |rho[6,2]| = w0^2 w2^2.
+    delta = 0.7
+    theta_a = np.linspace(0, 2 * np.pi, 4000, endpoint=False)
+    theta_b = theta_a - delta
+    w = np.array([1.0, 0.2, 2.0])
+    w = w / np.linalg.norm(w)
+    rho = joint_density_from_states(
+        weighted_multifreq_state(theta_a, (1, 2), w),
+        weighted_multifreq_state(theta_b, (1, 2), w),
+    )
+    np.testing.assert_allclose(abs(rho[6, 2]), w[0] ** 2 * w[2] ** 2, atol=1e-9)
+
+
+def test_controlled_shift_is_unitary_and_entangles():
+    from qot_course.quantum.composite import entanglement_entropy
+
+    U = controlled_shift_unitary(3)
+    assert U.shape == (9, 9)
+    np.testing.assert_allclose(U.conj().T @ U, np.eye(9), atol=1e-12)
+    # Control in superposition, target in a basis state: |+>_A (x) |0>_B
+    # -> (|00> + |11> + |22>)/sqrt(3), a maximally entangled qutrit pair (entropy = log2 3).
+    plus = np.ones(3, dtype=complex) / np.sqrt(3)
+    ket0 = np.array([1, 0, 0], dtype=complex)
+    psi = np.kron(plus, ket0) @ U.T
+    rho = np.outer(psi, psi.conj())
+    np.testing.assert_allclose(
+        entanglement_entropy(rho, dims=[3, 3]), np.log2(3), atol=1e-9
+    )
+
+
+def test_entangling_with_identity_matches_plain_joint():
+    rng = np.random.default_rng(1)
+    ta = rng.uniform(0, 2 * np.pi, 3000)
+    tb = rng.uniform(0, 2 * np.pi, 3000)
+    psi_a, psi_b = multifreq_state(ta), multifreq_state(tb)
+    plain = joint_density_from_states(psi_a, psi_b)
+    ent_id = entangling_joint_density(psi_a, psi_b, np.eye(9, dtype=complex))
+    np.testing.assert_allclose(ent_id, plain, atol=1e-12)
+
+
+def test_entangling_joint_density_is_valid_state():
+    rng = np.random.default_rng(2)
+    ta = rng.uniform(0, 2 * np.pi, 3000)
+    tb = rng.uniform(0, 2 * np.pi, 3000)
+    rho = entangling_joint_density(
+        multifreq_state(ta), multifreq_state(tb), controlled_shift_unitary(3)
+    )
+    assert rho.shape == (9, 9) and _is_state(rho)
