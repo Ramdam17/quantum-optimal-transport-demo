@@ -19,7 +19,7 @@ des notebooks « pour aller plus loin »). Rien n'est gravé ; un track négatif
 
 | Track | Question | Verdict |
 |---|---|---|
-| **A — réseau N-nœuds** | Le formalisme apporte-t-il une valeur méthodologique sur le couplage multipartite ? | **PROMETTEUR, mais plus étroit que prévu.** Pas d'avantage de détection (confirmé). Le différenciateur réel est **la géométrie** : Bures donne une **métrique canonique sur les configurations de couplage** que le toolbox classique (total correlation, O-information) n'offre pas. |
+| **A — réseau N-nœuds** | Le formalisme apporte-t-il une valeur méthodologique sur le couplage multipartite ? | **GATE FRANCHI (valeur modeste, honnête).** Pas d'avantage de détection. Le différenciateur réel = **la géométrie** : Bures clusterise les régimes de couplage (silhouette 0.474) nettement mieux que le descripteur classique naïf (0.191) et au niveau du descripteur expert (0.405) — un objet **canonique, sans-paramètre**, pas une capacité que le classique n'a pas. |
 | **B — embedding appris** | Peut-on *optimiser* l'embedding contre une cible ? | **PREUVE DE CONCEPT.** Marche (3.9× equal-weight, 1.59× le hand-picked), mais redécouvre l'intuition « tuer le canal PLV ». Sa vraie valeur exige un problème où le bon embedding n'est *pas* évident. |
 | **C — borne structurelle** | La borne R2 tient-elle au multipartite ? | **CONFIRMÉ (négatif-utile).** Au N=3, intriquer un embedding d'ordre trop bas ne conjure aucun couplage triadique d'ordre supérieur. Quantum-inspired = unification, jamais détection exclusive — maintenant établi au-delà des dyades. |
 
@@ -82,8 +82,29 @@ connu de l'estimation d'entropie continue). La mesure quantique **n'a pas de par
 (aussi un cadran), et l'O-information a des estimateurs continus ; l'avantage est « représentation
 continue interprétable » plutôt que « zéro arbitraire ».
 
-**Verdict A :** prometteur, **recentré sur Q2** (la géométrie/transport sur les configurations).
-Aucun avantage de détection ; Q1 n'en est pas un ; Q2 est le cœur, Q3 un appoint.
+**Phase-2 gate — « la métrique de Bures sert-elle à quelque chose ? » : OUI (modeste, honnête).**
+Test de récupération de régimes : 5 régimes de couplage (indépendant, par-paires, chaîne,
+triadique 1er ordre, triadique 2e ordre), 6 instances chacun, distance de Bures entre les `ρ`
+qutrit, score de silhouette sur les labels de régime. Comparé à deux baselines classiques. **Très
+stable (8 seeds, std 0.002) :**
+```
+Bures geometry (qutrit, sans paramètre)                  silhouette 0.474
+classique NAIF  (MI par paires x3 + total correlation)   silhouette 0.191
+classique EXPERT (PLV1x3, PLV2x3, résultants triadiques x2, TC) silhouette 0.405
+```
+→ Bures **≫ naïf** (le descripteur classique par défaut rate la structure triadique) et
+**≈ légèrement > expert**. **Ce n'est PAS un fossé de capacité** : un classique pleinement informé
+y arrive presque (0.405). La valeur de Bures est : **un objet géométrique unique, canonique, sans
+paramètre**, qui capte automatiquement la structure multipartite (triadique incluse) *sans que
+l'analyste ait à savoir quels features d'ordre supérieur calculer* — et qui ouvre des opérations
+géométriques natives (clustering de régimes, géodésiques, trajectoire de couplage dans le temps)
+qu'un vecteur de features ne fournit pas. L'edge marginal (~17 %) est réel mais modeste.
+
+**Verdict A :** **gate franchi** — candidat notebooks, sur une proposition de valeur *honnête et
+modeste* : une géométrie de transport/Bures canonique et sans-paramètre sur les configurations de
+couplage multipartite. Aucun avantage de détection ; Q1 n'en est pas un (Watanabe) ; Q2/Q3 sont le
+cœur ; l'avantage est *méthodologique* (canonicité, opérations géométriques), pas une capacité que
+le classique n'a pas.
 
 ---
 
@@ -129,10 +150,11 @@ exclusive, sur données classiques — confirmé à N=3.** C'est le garde-fou d'
    contre la **total correlation classique (Watanabe)** — l'apport est la **métrique canonique
    inter-configurations**, pas la détection ni un premier scalaire multivarié. (On se positionne
    contre le standard incontesté, **pas** contre l'O-information / le programme synergie-émergence.)
-2. **Le test à passer avant tout notebook A** : montrer que la métrique de Bures fait quelque chose
-   d'*utile* qu'un classique ne fait pas — p. ex. classer/clusteriser des configurations de couplage
-   de façon stable, ou définir une géodésique entre régimes de couplage. Sinon A reste « joli mais
-   sans usage ».
+2. **Le test à passer avant tout notebook A : PASSÉ** (gate Phase-2 ci-dessus) — Bures clusterise
+   les régimes de couplage nettement mieux que le descripteur classique naïf et au niveau (un peu
+   au-dessus) du descripteur expert, de façon stable. La valeur est *méthodologique* (canonique,
+   sans-paramètre, opérations géométriques natives), pas une capacité de détection. Donc A est un
+   candidat-notebooks **légitime mais à cadrer honnêtement** (ne pas survendre l'edge).
 3. **Track B** = encart/extension de A (embedding appris pour une cible), pas une série autonome.
 4. **Track C** = un *encart d'intégrité* (ou un court write-up méthodo), pas des notebooks.
 5. **Le SDP de transport multipartite** (vraie distance de Wasserstein quantique entre états de
