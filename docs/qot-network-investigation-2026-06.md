@@ -23,10 +23,16 @@ des notebooks « pour aller plus loin »). Rien n'est gravé ; un track négatif
 | **B — embedding appris** | Peut-on *optimiser* l'embedding contre une cible ? | **PREUVE DE CONCEPT.** Marche (3.9× equal-weight, 1.59× le hand-picked), mais redécouvre l'intuition « tuer le canal PLV ». Sa vraie valeur exige un problème où le bon embedding n'est *pas* évident. |
 | **C — borne structurelle** | La borne R2 tient-elle au multipartite ? | **CONFIRMÉ (négatif-utile).** Au N=3, intriquer un embedding d'ordre trop bas ne conjure aucun couplage triadique d'ordre supérieur. Quantum-inspired = unification, jamais détection exclusive — maintenant établi au-delà des dyades. |
 
-**Recommandation préliminaire (à décider en Phase 2) :** la seule piste qui mérite vraiment des
-notebooks est **A, recentrée sur la géométrie (Q2)** — *une métrique de transport/Bures sur les
-configurations de couplage multipartite*, ce que le classique n'a pas canoniquement. B est un
-add-on utile à A. C est un livrable d'intégrité (papier/encart), pas une série de notebooks.
+**Recommandation préliminaire (à décider en Phase 2), après le deep dive trajectoire :** le bilan
+honnête est **plus sobre** qu'à la première lecture. La géométrie de Bures donne un avantage
+**modeste et borné** : un win sur le **clustering statique** des régimes de couplage (vs le
+descripteur classique naïf ; à parité avec le descripteur expert), mais **AUCUN** avantage en
+**détection** (R2) ni en **détection temporelle de reconfiguration** (deep dive ci-dessous :
+la vitesse-TC classique gagne). La valeur réelle est donc : *un langage géométrique unifié,
+canonique et sans-paramètre pour le couplage multipartite* — conceptuellement propre et
+pédagogiquement net, **empiriquement marginal**. Ce n'est pas un breakthrough ; c'est un reframing
+méthodologique honnête. À Rémy de juger si cela mérite une série de notebooks « pour aller plus
+loin » (cadrée sans surclamer) ou seulement un encart. B reste un add-on ; C un livrable d'intégrité.
 
 ---
 
@@ -142,6 +148,31 @@ statistique classique 2e-harmonique la lit. **Quantum-inspired = unification, ja
 exclusive, sur données classiques — confirmé à N=3.** C'est le garde-fou d'intégrité du programme.
 
 ---
+
+## Deep dive (2026-06-10) — la trajectoire temporelle de couplage : NÉGATIF honnête
+
+L'angle le plus distinctif de la géométrie : l'hyperscanning est résolu dans le temps, donc une
+métrique sur les configurations transforme la *dynamique* du couplage en un **chemin** (vitesse de
+Bures `d_B(ρ(t), ρ(t−1))` sur fenêtres glissantes). Test décisif : une transition entre deux régimes
+**à total correlation appariée** mais structure différente (chaîne → triadique) — la vitesse de
+Bures devrait y piquer là où la vitesse-TC reste plate.
+
+**Résultat (mené proprement, après correction d'un premier non-test où les époques n'étaient pas
+appariées) :**
+```
+transition TC-appariée, couplage FAIBLE (TC~0.45) : Bures 1.3x   vs  TC-velocity 3.5x
+transition TC-appariée, couplage FORT  (TC~1.4)  : Bures 4.5x   vs  TC-velocity 22x
+```
+→ **Bures ne bat PAS la vitesse-TC pour détecter la transition**, dans les deux cas. **Diagnostic
+honnête :** même à TC moyenne appariée entre régimes, la fenêtre qui *chevauche* la transition
+mélange les deux régimes, et la TC d'un mélange diffère de celle des époques pures → la vitesse-TC
+pique quand même (artefact de mélange), et la fenêtre (W=2000) est trop bruitée pour résoudre le pas
+de Bures structure-préservant. **La détection de point de changement ne donne aucun avantage à la
+géométrie** — le scalaire classique fait le travail.
+
+**Ce que ce négatif tempère :** la géométrie aide pour la **caractérisation/clustering statique** des
+configurations de couplage (gate Phase-2, win modeste), **pas** pour la **détection temporelle** de
+reconfiguration. Le programme « trajectoire de couplage » ne rescussite pas un avantage mesurable.
 
 ## Implications pour la Phase 2 (décision)
 
