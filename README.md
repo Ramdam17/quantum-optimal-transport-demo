@@ -5,7 +5,7 @@ a controlled demonstration of *when* quantum optimal transport reads coupling st
 phase-locking value (PLV) cannot.
 
 The course is built **one concept per notebook**: short, focused "bricks" build progressively to a
-"synthesis" notebook, so each idea lands before the next arrives. **71 notebooks across 6 modules**,
+"synthesis" notebook, so each idea lands before the next arrives. **73 notebooks across 6 modules**,
 sized for ~1-hour sessions and a mixed-background audience, and meant to be worked through with an AI
 tutor alongside.
 
