@@ -69,12 +69,22 @@ La mesure doit lire le **joint** (cohérences), pas les marginales : le coût-tr
 marginales est ~0 ici (les marginales sont ~I/d pour les deux ensembles) — c'est le mauvais outil
 pour un *readout de couplage*. QMI domine Bures.
 
-### R1.3 — Plongement amplitude : un canal de couplage nouveau
+### R1.3 — Plongement amplitude : un canal de couplage différent (non-exclusif)
 
 Deux ensembles à **phases identiques** (donc PLV *et* qutrit-de-phase appariés, PLV=0.4003) mais
 couplage *phase-amplitude* différent (amplitude indépendante vs amplitude ∝ cos(Δθ)) :
 plongement amplitude → **gap QMI = 0.00739**. Le canal amplitude expose un couplage que la PLV est
-aveugle à par construction — pertinent pour la neuro (couplage phase-amplitude / amplitude-amplitude).
+aveugle à par construction — c'est du **couplage phase-amplitude (PAC)**, phénomène neuro classique
+et très étudié, *pas* un résultat original.
+
+**Baseline classique apparié (Tort et al. 2010, modulation index = distance KL de la distribution
+amplitude-sur-phase à l'uniforme) :** MI indep = 0.000, MI coupled = **0.040** — la statistique PAC
+classique sépare aussi, et **plus proprement** (gap 0.040 ≫ 0.0074). Donc, comme pour le 2e moment,
+le canal amplitude est **non-exclusif** : la valeur est l'**unification** (un même cadre densité-
+matrice atteint synchronie de phase, moments d'ordre supérieur *et* PAC selon le plongement), pas
+une détection que le classique n'aurait pas. Refs vérifiées via PubMed : Tort et al. 2010
+(*J. Neurophysiol.* 104:1195, DOI:10.1152/jn.00106.2010) ; Canolty & Knight 2010
+(*Trends Cogn. Sci.* 14:506, DOI:10.1016/j.tics.2010.09.001).
 
 ### R1.4 — Plus d'harmoniques
 
