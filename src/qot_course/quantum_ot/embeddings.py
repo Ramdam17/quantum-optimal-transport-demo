@@ -245,6 +245,183 @@ def multifreq_state(
     return np.column_stack(cols) / np.sqrt(float(len(cols)))
 
 
+def weighted_multifreq_state(
+    theta: ArrayLike,
+    harmonics: Sequence[int] = (1, 2),
+    weights: Sequence[float] | None = None,
+) -> NDArray[np.complex128]:
+    r"""Embed phase samples as a multi-frequency qudit with tunable per-channel weights.
+
+    Generalises :func:`multifreq_state` by replacing its equal weights :math:`1/\sqrt{d}`
+    with an arbitrary (normalised) weight vector
+    :math:`w = (w_0, w_1, \dots)`, mapping each sample to
+    :math:`\frac{1}{\lVert w\rVert}\bigl(w_0\,|0\rangle + \sum_h w_{h}\,e^{i h \theta}\,|h\rangle\bigr)`.
+    The DC weight :math:`w_0` and the harmonic weights set how strongly each circular-moment
+    channel is encoded into the joint density :func:`joint_density_from_states` builds: the
+    coherence carrying the :math:`h`-th circular moment scales like :math:`w_0^2\,w_h^2`.
+
+    Parameters
+    ----------
+    theta : array_like, shape (N,)
+        Phase samples in radians. Flattened on input.
+    harmonics : sequence of int, optional
+        Phase harmonics to encode (default ``(1, 2)`` -> a qutrit). Qudit dimension is
+        ``d = 1 + len(harmonics)``.
+    weights : sequence of float, optional
+        Per-channel weights ``(w_DC, w_h1, w_h2, ...)``, length ``1 + len(harmonics)``.
+        Normalised internally (only the *ratios* matter). ``None`` reproduces the
+        equal-weight :func:`multifreq_state` exactly.
+
+    Returns
+    -------
+    psi : ndarray of complex, shape (N, d)
+        Unit-norm qudit amplitudes per sample (``d = 1 + len(harmonics)``).
+
+    Notes
+    -----
+    When to use
+        Use to **amplify the measurable QOT>PLV effect** (research extension 04/17): the naive
+        equal weighting spreads the joint density's coupling across the first-moment (PLV)
+        channel and the higher-moment channels alike. *Down-weighting* the first-harmonic
+        channel (e.g. ``weights=(1.0, 0.2, 2.0)``) suppresses the dominant PLV channel --- which
+        carries the dominant Monte-Carlo *noise* --- and concentrates the quantum mutual
+        information on the discriminating higher-moment channel, raising both the gap and its
+        significance. Use the equal-weight :func:`multifreq_state` for the faithful,
+        unbiased directional embedding; use this when you are deliberately tuning *which* moment
+        the coupling measure emphasises. The weighting does **not** create exclusivity over a
+        matched classical statistic (see 04/18): it improves *measurability*, not detection power.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> theta = np.linspace(0, 2 * np.pi, 60, endpoint=False)
+    >>> np.allclose(weighted_multifreq_state(theta, weights=None),
+    ...             multifreq_state(theta))   # None -> equal weights
+    True
+    >>> psi = weighted_multifreq_state(theta, harmonics=(1, 2), weights=(1.0, 0.2, 2.0))
+    >>> np.allclose(np.sum(np.abs(psi) ** 2, axis=1), 1.0)
+    True
+
+    References
+    ----------
+    K. V. Mardia & P. E. Jupp, *Directional Statistics* (Wiley, 2000),
+    DOI:10.1002/9780470316979.
+    """
+    theta = np.asarray(theta, dtype=float).ravel()
+    cols = [np.ones_like(theta, dtype=complex)]
+    cols += [np.exp(1j * h * theta) for h in harmonics]
+    if weights is None:
+        w = np.ones(len(cols))
+    else:
+        w = np.asarray(weights, dtype=float)
+        if w.shape != (len(cols),):
+            raise ValueError(
+                f"weights must have length 1 + len(harmonics) = {len(cols)}, got {w.shape}"
+            )
+    w = w / np.linalg.norm(w)  # normalise so each per-sample row is unit norm
+    return np.column_stack([wk * c for wk, c in zip(w, cols)])
+
+
+def controlled_shift_unitary(d: int) -> NDArray[np.complex128]:
+    r"""Build the controlled cyclic-shift unitary on :math:`\mathbb{C}^d \otimes \mathbb{C}^d`.
+
+    Returns the qudit generalisation of CNOT: :math:`U\,|i\rangle|j\rangle =
+    |i\rangle\,|(j + i) \bmod d\rangle`. It is unitary (a permutation matrix) and genuinely
+    **entangling** --- applied to a product of two unbiased superpositions it produces a state
+    with non-zero entanglement entropy.
+
+    Parameters
+    ----------
+    d : int
+        Dimension of each subsystem (``d = 2`` recovers CNOT). The result acts on the
+        :math:`d^2`-dimensional joint space.
+
+    Returns
+    -------
+    U : ndarray of complex, shape (d*d, d*d)
+        The controlled-shift unitary in the :math:`|i\rangle_A|j\rangle_B \mapsto i\,d + j`
+        (Kronecker / row-major) basis shared with :mod:`qot_course.quantum.composite`.
+
+    Notes
+    -----
+    When to use
+        Use to supply a fixed entangling unitary to :func:`entangling_joint_density` when
+        probing whether entangling a (deterministic, classical-data) embedding can let a QOT
+        measure see structure a same-order classical statistic cannot (research extension
+        04/18). The answer is no --- this constructor is the tool that *demonstrates* the
+        structural bound, not one that breaks it.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> U = controlled_shift_unitary(3)
+    >>> np.allclose(U.conj().T @ U, np.eye(9))
+    True
+    """
+    dim = d * d
+    u = np.zeros((dim, dim), dtype=complex)
+    for i in range(d):
+        for j in range(d):
+            u[i * d + ((j + i) % d), i * d + j] = 1.0
+    return u
+
+
+def entangling_joint_density(
+    psi_a: NDArray[np.complex128],
+    psi_b: NDArray[np.complex128],
+    unitary: NDArray[np.complex128],
+) -> NDArray[np.complex128]:
+    r"""Build a time-averaged joint density after applying a fixed entangling unitary.
+
+    Forms the per-sample product :math:`|\Psi(t)\rangle = |\psi_A(t)\rangle \otimes
+    |\psi_B(t)\rangle`, applies a fixed joint unitary :math:`U`, and averages:
+    :math:`\rho_{AB} = \mathbb{E}_t\bigl[\,U|\Psi(t)\rangle\langle\Psi(t)|U^\dagger\,\bigr]`.
+    Unlike :func:`joint_density_from_states` (the special case :math:`U = I`), the result is
+    generally **non-separable** --- :math:`U` correlates the two subsystems per sample before
+    the average.
+
+    Parameters
+    ----------
+    psi_a, psi_b : ndarray of complex, shape (N, d_A), (N, d_B)
+        Per-sample (unit-norm) embeddings for systems :math:`A` and :math:`B`.
+    unitary : ndarray of complex, shape (d_A*d_B, d_A*d_B)
+        Fixed joint unitary applied to each per-sample product state (e.g.
+        :func:`controlled_shift_unitary`). Not checked for unitarity here.
+
+    Returns
+    -------
+    rho : ndarray of complex, shape (d_A*d_B, d_A*d_B)
+        Hermitian, unit-trace, PSD joint density in the Kronecker basis.
+
+    Notes
+    -----
+    When to use
+        Use to test the **structural bound** of the research extension (04/18): does entangling
+        a deterministic embedding of *classical* phase data let a QOT measure detect a moment
+        the embedding does not capture? It does not --- even with genuine entanglement, every
+        matrix element of ``rho`` remains an empirical average of a deterministic function of
+        the classical phases, hence a classical (cross-)moment. Use
+        :func:`joint_density_from_states` for the ordinary (product) joint state; use this only
+        for the entangling probe.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> ta = rng.uniform(0, 2 * np.pi, 2000); tb = rng.uniform(0, 2 * np.pi, 2000)
+    >>> psi_a = multifreq_state(ta); psi_b = multifreq_state(tb)
+    >>> plain = joint_density_from_states(psi_a, psi_b)
+    >>> ent = entangling_joint_density(psi_a, psi_b, np.eye(9))
+    >>> np.allclose(ent, plain)   # U = I recovers the plain joint
+    True
+    """
+    d_a, d_b = psi_a.shape[1], psi_b.shape[1]
+    psi = np.einsum("ti,tj->tij", psi_a, psi_b).reshape(-1, d_a * d_b)
+    psi = psi @ unitary.T  # apply U to each per-sample product state
+    rho = (psi.T @ psi.conj()) / psi.shape[0]
+    return 0.5 * (rho + rho.conj().T)
+
+
 def joint_density_from_states(
     psi_a: NDArray[np.complex128], psi_b: NDArray[np.complex128]
 ) -> NDArray[np.complex128]:

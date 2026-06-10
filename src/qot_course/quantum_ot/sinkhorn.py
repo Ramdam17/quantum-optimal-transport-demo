@@ -88,6 +88,10 @@ def quantum_sinkhorn_sdp(
     objective = cp.Minimize(transport - epsilon * entropy)
     problem = cp.Problem(objective, constraints)
 
+    # We request a tight gap (1e-9); CLARABEL may not certify it and can return status
+    # "optimal_inaccurate" (with a UserWarning we leave visible, not silenced). In
+    # practice the returned value is accurate to ~1e-7--1e-8, confirmed against the
+    # entropic->SDP and Amari-bridge regression tests. We accept that status below.
     chosen_solver = solver if solver is not None else "CLARABEL"
     if chosen_solver == "CLARABEL":
         problem.solve(solver="CLARABEL", tol_gap_abs=1e-9, tol_gap_rel=1e-9)

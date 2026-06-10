@@ -111,10 +111,12 @@ def quantum_ot_sdp(
     ]
     objective = cp.Minimize(cp.real(cp.trace(cost @ plan)))
     problem = cp.Problem(objective, constraints)
-    # CLARABEL is the interior-point SDP solver shipped with cvxpy. We tighten the
-    # tolerances explicitly to get ~1e-9 accuracy on qubit-scale problems --- the
-    # default settings hover around 1e-4 which is too loose for closed-form
-    # validation tests.
+    # CLARABEL is the interior-point SDP solver shipped with cvxpy. We request very
+    # tight tolerances (1e-10) because the default settings hover around 1e-4, far too
+    # loose for closed-form validation tests. CLARABEL frequently cannot *certify* a gap
+    # this small and returns status "optimal_inaccurate" (with a UserWarning we leave
+    # visible, not silenced); in practice the returned value is accurate to ~1e-7--1e-8,
+    # which all the closed-form regression tests confirm. We accept that status below.
     chosen_solver = solver if solver is not None else "CLARABEL"
     if chosen_solver == "CLARABEL":
         problem.solve(solver="CLARABEL", tol_gap_abs=1e-10, tol_gap_rel=1e-10)
