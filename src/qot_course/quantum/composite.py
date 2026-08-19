@@ -54,7 +54,15 @@ def partial_trace(rho: np.ndarray, keep: list[int], dims: list[int]) -> np.ndarr
 
 
 def entanglement_entropy(rho: np.ndarray, dims: list[int]) -> float:
-    """Entanglement entropy = von Neumann entropy of the first subsystem's reduced state."""
+    """Entanglement entropy = von Neumann entropy of the first subsystem's reduced state.
+
+    Valid as an entanglement measure ONLY when ``rho`` is a pure global state
+    (purity 1): for a mixed ``rho`` the entropy of a part mixes the global
+    randomness with any entanglement and is not an entanglement measure — e.g.
+    the classically correlated state (|00><00| + |11><11|)/2 returns 1 bit and
+    is separable. For mixed two-qubit states use a partial-transpose test
+    instead (Peres 1996, doi:10.1103/PhysRevLett.77.1413).
+    """
     reduced = partial_trace(rho, keep=[0], dims=dims)
     return von_neumann_entropy(reduced)
 
