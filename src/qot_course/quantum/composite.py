@@ -74,14 +74,25 @@ def apply_channel(rho: np.ndarray, kraus: list[np.ndarray]) -> np.ndarray:
 
 
 def is_cptp(kraus: list[np.ndarray], atol: float = 1e-9) -> bool:
-    """Check the completeness relation sum_k K_k^dagger K_k = I (trace preservation)."""
+    """Check the completeness relation sum_k K_k^dagger K_k = I (trace preservation).
+
+    Complete positivity is automatic for any operator-sum (Kraus) list, so the
+    completeness relation is the only thing left to verify for a Kraus list to
+    define a CPTP map (Choi 1975, doi:10.1016/0024-3795(75)90075-0).
+    """
     dim = kraus[0].shape[0]
     total = sum(K.conj().T @ K for K in kraus)
     return bool(np.allclose(total, np.eye(dim, dtype=complex), atol=atol))
 
 
 def depolarizing_channel(p: float) -> list[np.ndarray]:
-    """Kraus operators of the single-qubit depolarizing channel with parameter ``p``."""
+    """Kraus operators of the single-qubit depolarizing channel with parameter ``p``.
+
+    Convention: rho -> (1 - p) rho + p I/2 (with probability ``p`` the state is
+    replaced by the maximally mixed state); Kraus set sqrt(1 - 3p/4) I,
+    sqrt(p/4) X, sqrt(p/4) Y, sqrt(p/4) Z. Purity of the output of a pure
+    input is (1 + (1 - p)^2) / 2. Complete positivity requires 0 <= p <= 4/3.
+    """
     return [
         np.sqrt(1.0 - 3.0 * p / 4.0) * _I,
         np.sqrt(p / 4.0) * _X,
