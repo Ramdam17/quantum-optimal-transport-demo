@@ -32,8 +32,10 @@ def bernoulli_fisher(theta: float) -> float:
         I(\\theta) = \\mathbb{E}\\!\\left[\\left(\\frac{\\partial \\log p}{\\partial \\theta}\\right)^2\\right]
         = \\frac{1}{\\theta(1-\\theta)}.
 
-    The metric blows up at the boundary --- the corners of the simplex are infinitely
-    far away in Fisher--Rao distance.
+    The metric coefficient blows up like ``1/(theta (1 - theta))`` at the boundary, but
+    ``int dtheta / sqrt(theta (1 - theta))`` converges: the corners of the simplex sit at
+    *finite* Fisher--Rao distance (``2 arcsin sqrt(theta)`` from the corner ``theta = 0``;
+    see :func:`fisher_rao_distance`, bounded by ``pi``).
 
     Parameters
     ----------
