@@ -46,12 +46,17 @@ DOI: 10.1103/PhysRevE.48.3470.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
 from scipy.linalg import solve_banded
+from scipy.optimize import brentq, least_squares
 
 from qot_course.quantum_ot.embeddings import weighted_multifreq_state
+from qot_course.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 # Number of noise components per step: one per oscillator.
 _N_OSCILLATORS = 2
@@ -72,6 +77,22 @@ _CONVERGENCE_RATIO = 1e-10
 # round-off on moments of order one (about 1e-16), far below any moment the bench
 # reads as nonzero.
 _MIN_MODULUS = 1e-12
+# Number of evenly spaced K1 values on which |m1| - target is scanned before the
+# first sign change is refined. Heuristic: on the default search interval [0, 3]
+# it gives a step of 0.01 rad/s, fine enough for every |m1| curve of the bench,
+# while costing a few hundred banded solves. Two crossings closer than one step
+# are missed.
+_K1_SCAN_POINTS = 301
+# Number of starting points of the least-squares search for an equal-moduli
+# partner, spread evenly in K2 over the allowed interval (plus the mirror image
+# of the reference setting). Heuristic: the residual surface can have several
+# local minima, and a handful of starts was enough in the trial.
+_N_PAIR_STARTS = 5
+# Step, cost and gradient tolerances of scipy.optimize.least_squares for the
+# equal-moduli search. Heuristic: tight enough that the residual is limited by
+# the reachability of the target rather than by the optimiser, so that a pair
+# within 1e-6 is not reported as missed.
+_PAIR_SOLVER_TOL = 1e-14
 
 
 def simulate_biharmonic_dyad(
@@ -523,3 +544,242 @@ def long_run_joint_density(
     tensor = np.where(survives, amplitude * moment, 0.0)
     # Row (i, j) -> i*d + j and column (k, l) -> k*d + l: the Kronecker basis.
     return tensor.reshape(d * d, d * d)
+
+
+def solve_k1_for_plv(
+    target: float,
+    k2: float,
+    *,
+    k1_search_max: float = 3.0,
+    **model: float,
+) -> float:
+    """First-harmonic coupling that gives a requested phase-locking value.
+
+    Finds the first :math:`K_1 \\ge 0`, on the scan described below, at which the
+    exact long-run phase-locking value :math:`|m_1| = |E[e^{i\\Delta}]|` of
+    :func:`stationary_moments` equals ``target``, with :math:`K_2` held at
+    ``k2``. The function :math:`|m_1| - \\text{target}` is evaluated on 301
+    evenly spaced values of :math:`K_1` in ``[0, k1_search_max]`` (a step of
+    0.01 rad/s on the default interval), and the first sign change is refined
+    with Brent's method.
+
+    Parameters
+    ----------
+    target : float
+        Requested phase-locking value :math:`|m_1|`, dimensionless.
+    k2 : float
+        Second-harmonic coupling :math:`K_2` (rad/s), held fixed.
+    k1_search_max : float, default 3.0
+        Upper end of the scanned interval of :math:`K_1` (rad/s).
+    **model : float
+        Forwarded to :func:`stationary_moments`: ``omega_1``, ``omega_2``,
+        ``noise_std`` and ``n_modes``.
+
+    Returns
+    -------
+    k1 : float
+        First-harmonic coupling (rad/s) at which :math:`|m_1|` equals
+        ``target`` to the precision of Brent's method.
+
+    Raises
+    ------
+    ValueError
+        If ``k1_search_max`` is not positive, or if no sign change of
+        :math:`|m_1| - \\text{target}` is found on the scan. The second message
+        names ``target`` and ``k2``.
+
+    Notes
+    -----
+    When to use: to build two settings with the same phase-locking value and
+    different second-harmonic couplings, so that any difference a statistic
+    sees between them cannot come from :math:`|m_1|`.
+
+    The root found is the first crossing on the scan from zero, not a
+    guaranteed global smallest root. With the default detuning, :math:`|m_1|`
+    need not grow monotonically with :math:`K_1` at fixed :math:`K_2`, so the
+    curve may cross ``target`` more than once. Two crossings that both fall
+    between the same pair of neighbouring grid points cancel in the sign test
+    and are missed.
+
+    Examples
+    --------
+    >>> k1 = solve_k1_for_plv(0.3, 0.0)
+    >>> round(float(abs(stationary_moments(k1, 0.0)[1])), 6)
+    0.3
+    """
+    if k1_search_max <= 0.0:
+        raise ValueError(f"k1_search_max must be positive, got {k1_search_max}")
+
+    def gap(k1: float) -> float:
+        return float(abs(stationary_moments(k1, k2, **model)[1])) - target
+
+    grid = np.linspace(0.0, k1_search_max, _K1_SCAN_POINTS)
+    values = np.array([gap(k1) for k1 in grid])
+    for i in range(grid.size - 1):
+        if values[i] == 0.0:
+            return float(grid[i])
+        if values[i] * values[i + 1] < 0.0:
+            return float(brentq(gap, grid[i], grid[i + 1]))
+    if values[-1] == 0.0:
+        return float(grid[-1])
+    raise ValueError(
+        f"no k1 in [0, {k1_search_max}] gives |m1| = target={target} at k2={k2}"
+    )
+
+
+@dataclass(frozen=True)
+class EqualModuliPair:
+    """A reference setting and a partner with the same two moment moduli.
+
+    Attributes
+    ----------
+    k1_ref, k2_ref : float
+        Reference couplings :math:`(K_1, K_2)` (rad/s).
+    k1, k2 : float
+        Partner couplings (rad/s); ``k2`` has the sign opposite to ``k2_ref``.
+    residual : float
+        Larger of :math:`\\bigl||m_1| - |m_1^{\\mathrm{ref}}|\\bigr|` and
+        :math:`\\bigl||m_2| - |m_2^{\\mathrm{ref}}|\\bigr|` at the partner,
+        dimensionless.
+    found : bool
+        True when ``residual`` is within the tolerance asked for; when False
+        the partner is only the closest setting found, and a comparison that
+        assumes equal moduli must not be made with it.
+    """
+
+    k1_ref: float
+    k2_ref: float
+    k1: float
+    k2: float
+    residual: float
+    found: bool
+
+
+def solve_equal_moduli_pair(
+    k1_ref: float,
+    k2_ref: float,
+    *,
+    k2_bound: float = 0.15,
+    tolerance: float = 1e-6,
+    k1_search_max: float = 3.0,
+    **model: float,
+) -> EqualModuliPair:
+    """Partner setting with the same moduli of both moments and opposite K2.
+
+    Searches for :math:`(K_1, K_2)` with :math:`K_2` of the sign opposite to
+    ``k2_ref`` and :math:`|K_2| \\le` ``k2_bound`` such that :math:`|m_1|` and
+    :math:`|m_2|` of :func:`stationary_moments` equal those of the reference.
+    The two modulus differences are minimised with
+    :func:`scipy.optimize.least_squares` under the bounds
+    :math:`K_1 \\in [0,` ``k1_search_max`` :math:`]` and :math:`K_2` between
+    :math:`-\\mathrm{sign}(K_2^{\\mathrm{ref}})` ``k2_bound`` and 0, from six
+    starting points: the mirror image :math:`(K_1^{\\mathrm{ref}}, -K_2^{\\mathrm{ref}})`
+    clipped to the bounds, and five values of :math:`K_2` spread evenly over
+    the allowed interval at :math:`K_1 = K_1^{\\mathrm{ref}}`. The start with the
+    smallest residual is kept.
+
+    Parameters
+    ----------
+    k1_ref : float
+        Reference first-harmonic coupling (rad/s).
+    k2_ref : float
+        Reference second-harmonic coupling (rad/s); must be nonzero.
+    k2_bound : float, default 0.15
+        Largest :math:`|K_2|` allowed for the partner (rad/s).
+    tolerance : float, default 1e-6
+        Largest modulus difference for which the pair counts as found.
+    k1_search_max : float, default 3.0
+        Upper bound on the partner's :math:`K_1` (rad/s).
+    **model : float
+        Forwarded to :func:`stationary_moments`: ``omega_1``, ``omega_2``,
+        ``noise_std`` and ``n_modes``.
+
+    Returns
+    -------
+    pair : EqualModuliPair
+        The reference, the best partner found, its residual and whether the
+        residual is within ``tolerance``. A request out of reach is returned
+        with ``found=False``, not raised, and a warning is logged.
+
+    Raises
+    ------
+    ValueError
+        If ``k2_ref`` is zero (the opposite sign is then undefined), or if
+        ``k2_bound``, ``tolerance`` or ``k1_search_max`` is not positive.
+
+    Notes
+    -----
+    When to use: to build two settings that agree on :math:`|m_1|` and
+    :math:`|m_2|` and differ only in the relative phase of the two moments
+    (:func:`relative_phase`), so that a statistic that tells them apart must
+    read that phase. Some references have no partner within the bound; with
+    the default model, :math:`(K_1, K_2) = (0.05, 0.15)` is one, and the
+    result then carries ``found=False``. A local search from a few starts can
+    miss a partner that exists; ``found=False`` means none was found, not that
+    none exists.
+
+    Examples
+    --------
+    >>> pair = solve_equal_moduli_pair(0.05, 0.12)
+    >>> pair.found, pair.k2 < 0
+    (True, True)
+    """
+    if k2_ref == 0.0:
+        raise ValueError("k2_ref must be nonzero: the opposite sign is undefined")
+    if k2_bound <= 0.0:
+        raise ValueError(f"k2_bound must be positive, got {k2_bound}")
+    if tolerance <= 0.0:
+        raise ValueError(f"tolerance must be positive, got {tolerance}")
+    if k1_search_max <= 0.0:
+        raise ValueError(f"k1_search_max must be positive, got {k1_search_max}")
+
+    ref = np.abs(stationary_moments(k1_ref, k2_ref, **model)[1:3])
+
+    def differences(x: NDArray[np.float64]) -> NDArray[np.float64]:
+        return np.abs(stationary_moments(x[0], x[1], **model)[1:3]) - ref
+
+    sign = float(np.sign(k2_ref))
+    far = -sign * k2_bound
+    lower = np.array([0.0, min(far, 0.0)])
+    upper = np.array([k1_search_max, max(far, 0.0)])
+    k1_start = float(np.clip(k1_ref, 0.0, k1_search_max))
+    # Interior fractions of the K2 interval, away from both K2 = 0 and the bound.
+    fractions = (np.arange(_N_PAIR_STARTS) + 0.5) / _N_PAIR_STARTS
+    starts = [(k1_start, float(np.clip(-k2_ref, lower[1], upper[1])))]
+    starts += [(k1_start, float(far * f)) for f in fractions]
+
+    best = None
+    for start in starts:
+        fit = least_squares(
+            differences,
+            np.array(start),
+            bounds=(lower, upper),
+            xtol=_PAIR_SOLVER_TOL,
+            ftol=_PAIR_SOLVER_TOL,
+            gtol=_PAIR_SOLVER_TOL,
+        )
+        if best is None or fit.cost < best.cost:
+            best = fit
+    k1, k2 = (float(v) for v in best.x)
+    residual = float(np.abs(differences(best.x)).max())
+    found = residual <= tolerance
+    if not found:
+        logger.warning(
+            "no equal-moduli partner of (k1=%s, k2=%s) with |k2| <= %s: closest is "
+            "(k1=%.6f, k2=%.6f) with residual %.3e > tolerance %.1e",
+            k1_ref,
+            k2_ref,
+            k2_bound,
+            k1,
+            k2,
+            residual,
+            tolerance,
+        )
+    return EqualModuliPair(
+        k1_ref=float(k1_ref),
+        k2_ref=float(k2_ref),
+        k1=k1,
+        k2=k2,
+        residual=residual,
+        found=found,
+    )

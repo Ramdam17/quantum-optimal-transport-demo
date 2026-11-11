@@ -4,9 +4,12 @@ from scipy.integrate import quad
 from scipy.special import ive
 
 from qot_course.quantum_ot.biharmonic import (
+    EqualModuliPair,
     long_run_joint_density,
     relative_phase,
     simulate_biharmonic_dyad,
+    solve_equal_moduli_pair,
+    solve_k1_for_plv,
     stationary_moments,
 )
 from qot_course.quantum_ot.capstone import coupling_qmi, simulate_kuramoto_dyad
@@ -184,3 +187,36 @@ def test_information_depends_on_the_relative_phase():
 def test_too_few_moments_is_rejected():
     with pytest.raises(ValueError, match="moments"):
         long_run_joint_density(np.array([1.0, 0.3]))
+
+
+@pytest.mark.parametrize("target, k2", [(0.3, 0.0), (0.3, -0.10), (0.6, -0.15), (0.6, 0.04)])
+def test_matched_phase_locking_value(target, k2):
+    k1 = solve_k1_for_plv(target, k2)
+    assert abs(stationary_moments(k1, k2)[1]) == pytest.approx(target, abs=1e-6)
+
+
+def test_matched_settings_differ_in_the_second_moment():
+    a = stationary_moments(solve_k1_for_plv(0.3, 0.0), 0.0)
+    b = stationary_moments(solve_k1_for_plv(0.3, -0.10), -0.10)
+    assert abs(a[2]) == pytest.approx(0.0712, abs=5e-4)   # values found by the trial
+    assert abs(b[2]) == pytest.approx(0.3681, abs=5e-4)
+
+
+def test_unreachable_target_raises_and_names_the_setting():
+    with pytest.raises(ValueError, match=r"target=0\.999.*k2=0\.1"):
+        solve_k1_for_plv(0.999, 0.1, k1_search_max=0.2)
+
+
+def test_equal_moduli_pair_is_found_within_the_bound():
+    pair = solve_equal_moduli_pair(0.05, 0.12)
+    assert isinstance(pair, EqualModuliPair) and pair.found
+    assert pair.k2 < 0 and abs(pair.k2) <= 0.15
+    ref, other = stationary_moments(0.05, 0.12), stationary_moments(pair.k1, pair.k2)
+    np.testing.assert_allclose(np.abs(other[1:]), np.abs(ref[1:]), atol=1e-6)
+    assert relative_phase(ref) - relative_phase(other) > 0.5      # about +0.18 against -0.46
+
+
+def test_equal_moduli_pair_out_of_reach_is_flagged_not_raised():
+    pair = solve_equal_moduli_pair(0.05, 0.15)       # needs |k2| > 0.15
+    assert not pair.found and pair.residual > 1e-3
+    assert abs(pair.k2) <= 0.15
