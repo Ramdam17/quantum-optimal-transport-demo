@@ -100,3 +100,32 @@ def test_compare_conditions_separates_a_clear_case():
     by = {r["statistic"]: r for r in rows}
     assert by["plv2"]["auc"] > 0.95 and by["plv2"]["score"] > 3.0
     assert abs(by["plv"]["score"]) < 3.0                       # the first harmonic does not see it
+
+
+def test_detection_rate_is_nan_on_a_constant_null():
+    assert np.isnan(detection_rate([0, 1, -1], [0, 0, 0]))
+
+
+SHORT = dict(duration=20.0, n_records=6, model=MODEL, weight_sets={})
+
+
+def test_compare_conditions_accepts_a_seed_sequence_without_consuming_it():
+    ss = np.random.SeedSequence(5)
+    first = compare_conditions((0.0, 0.0), (0.0, 0.10), seed=ss, **SHORT)
+    np.testing.assert_equal(first, compare_conditions((0.0, 0.0), (0.0, 0.10), seed=ss, **SHORT))
+    np.testing.assert_equal(first, compare_conditions((0.0, 0.0), (0.0, 0.10), seed=5, **SHORT))
+
+
+def test_compare_conditions_accepts_a_spawned_child_seed():
+    child_0, child_1 = np.random.SeedSequence(5).spawn(2)
+    rows_0 = compare_conditions((0.0, 0.0), (0.0, 0.10), seed=child_0, **SHORT)
+    rows_1 = compare_conditions((0.0, 0.0), (0.0, 0.10), seed=child_1, **SHORT)
+    assert rows_0[0]["mean_a"] != rows_1[0]["mean_a"]
+
+
+def test_compare_conditions_reports_the_number_of_null_differences():
+    rows = compare_conditions((0.0, 0.0), (0.0, 0.10), seed=5, **SHORT)
+    by = {r["statistic"]: r for r in rows}
+    assert list(by["plv"])[-2:] == ["n_valid", "n_null"]
+    assert by["plv"]["n_null"] == 6
+    assert 0 <= by["relphase_sin"]["n_null"] <= 6

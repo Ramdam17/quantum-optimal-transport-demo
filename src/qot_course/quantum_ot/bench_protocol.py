@@ -533,7 +533,8 @@ def detection_rate(
     rate : float
         Fraction in [0, 1] of the finite observed differences strictly below
         the lower or strictly above the upper bound. NaN when either side has
-        fewer than two finite values.
+        fewer than two finite values, or when the finite null values are all
+        equal (a band of zero width), as in :func:`signed_score`.
 
     Raises
     ------
@@ -547,6 +548,13 @@ def detection_rate(
     observed and null differences have the same distribution the rate is close
     to ``false_alarm_rate``; with few null values the band is coarse and the
     false-alarm rate is only approximate.
+
+    The band comes from the scatter of the null alone. In the bench the null
+    is made of two sets of the reference condition A, so the rate rises above
+    ``false_alarm_rate`` when the compared condition is merely more variable
+    than A, with no shift of the mean. A high rate together with a
+    :func:`signed_score` near zero and an :func:`auc` near 0.5 reads "the
+    compared condition is more variable", not "its mean differs".
 
     Examples
     --------
@@ -562,6 +570,10 @@ def detection_rate(
     obs = _finite(observed)
     nul = _finite(null)
     if obs.size < _MIN_FINITE_VALUES or nul.size < _MIN_FINITE_VALUES:
+        return float("nan")
+    # A constant null gives a band of zero width, which would flag every value
+    # that differs from it; treat it as undefined, as signed_score does.
+    if np.max(nul) == np.min(nul):
         return float("nan")
     low, high = np.quantile(nul, [false_alarm_rate / 2.0, 1.0 - false_alarm_rate / 2.0])
     return float(np.mean((obs < low) | (obs > high)))
@@ -645,7 +657,10 @@ def compare_conditions(
     n_records : int
         Number of records in each of the six sets.
     seed : int or numpy.random.SeedSequence
-        Master seed; the six sets use its six spawned children.
+        Master seed; the six sets use its six spawned children. A
+        ``SeedSequence`` is copied before spawning, so the caller's object is
+        left unchanged and two calls with it give the same rows; an integer
+        gives the same rows as ``np.random.SeedSequence`` of that integer.
     model : mapping of str to float
         Model settings with the keys ``omega_1``, ``omega_2`` (rad/s),
         ``noise_std`` (rad/sqrt(s)), ``dt`` and ``burn_in`` (s), forwarded to
@@ -671,8 +686,13 @@ def compare_conditions(
         against A' - A''), ``auc`` (:func:`auc` of the raw values of A and B),
         ``detection_rate`` (:func:`detection_rate` of B - A against
         A' - A''), ``null_sd_a`` and ``null_sd_b`` (standard deviations of the
-        finite values of A' - A'' and B' - B'') and ``n_valid`` (number of
-        records at which both A and B are finite). Summaries computed on fewer
+        finite values of A' - A'' and B' - B''), ``n_valid`` (number of
+        records at which both A and B are finite) and ``n_null`` (number of
+        records at which both A' and A'' are finite, that is, the number of
+        null differences that ``score`` and ``detection_rate`` rest on).
+        For the relative-phase keys ``n_null`` can be much smaller than
+        ``n_records``, because a null difference needs both uncoupled records
+        to pass the threshold on :math:`|m_1|`. Summaries computed on fewer
         than two finite values are NaN.
 
     Raises
@@ -693,6 +713,12 @@ def compare_conditions(
     left out of the summaries, ``n_valid`` reports how many remain, and
     nothing is raised. The area under the curve follows Hanley & McNeil
     (1982), DOI: 10.1148/radiology.143.1.7063747.
+
+    The band of ``detection_rate`` comes from the scatter of condition A
+    alone, so the rate rises above ``false_alarm_rate`` when B is merely more
+    variable than A, with no shift of the mean. A high rate together with a
+    score near zero and an area near 0.5 reads "B is more variable"; compare
+    ``null_sd_b`` with ``null_sd_a`` to check it.
 
     Examples
     --------
@@ -729,7 +755,15 @@ def compare_conditions(
         condition_b,
         condition_b,
     )
-    children = np.random.SeedSequence(seed).spawn(_N_RECORD_SETS)
+    if isinstance(seed, np.random.SeedSequence):
+        # Spawning advances the child counter of the caller's object, so a second
+        # call with it would draw other sets. Spawn from an equivalent copy instead.
+        master = np.random.SeedSequence(
+            entropy=seed.entropy, spawn_key=seed.spawn_key, pool_size=seed.pool_size
+        )
+    else:
+        master = np.random.SeedSequence(seed)
+    children = master.spawn(_N_RECORD_SETS)
     sets = {
         label: _set_statistics(
             condition,
@@ -769,6 +803,7 @@ def compare_conditions(
                 "null_sd_a": _mean_and_sd(null_a)[1],
                 "null_sd_b": _mean_and_sd(null_b)[1],
                 "n_valid": int(np.count_nonzero(np.isfinite(a) & np.isfinite(b))),
+                "n_null": int(np.count_nonzero(np.isfinite(null_a))),
             }
         )
     return rows
