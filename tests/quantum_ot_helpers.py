@@ -38,3 +38,14 @@ def count_solver_calls(monkeypatch) -> list:
 
     monkeypatch.setattr(cp.Problem, "solve", counting_solve)
     return calls
+
+
+def matrices_that_are_not_states() -> dict[str, np.ndarray]:
+    """Two-level matrices that fail one defining property of a density matrix each."""
+    return {
+        "negative_eigenvalue": np.diag([1.2, -0.2]).astype(complex),
+        "trace_one_half": np.eye(2, dtype=complex) / 4,
+        "zero_matrix": np.zeros((2, 2), dtype=complex),
+        "not_hermitian": np.array([[0.5, 0.3], [0.0, 0.5]], dtype=complex),
+        "trace_four": 2 * np.eye(2, dtype=complex),
+    }

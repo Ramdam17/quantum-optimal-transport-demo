@@ -17,6 +17,7 @@ from qot_course.quantum_ot.sdp import (
 from qot_course.quantum_ot.sinkhorn import quantum_sinkhorn_cost
 from tests.quantum_ot_helpers import (
     count_solver_calls,
+    matrices_that_are_not_states,
     random_full_rank_state,
     random_hermitian,
     random_ket,
@@ -178,8 +179,8 @@ def test_entropic_cost_converges_to_sdp_as_epsilon_to_zero():
 # returns its cost without calling the solver. The bound is the rounding error of a
 # Kronecker product and a trace. The solver it replaces fails on most three-level
 # cases: over ten random draws it raised a SolverError nine times for a pure state
-# against a full-rank one and seven times for two pure states, and the draws it
-# survived were off by 5e-4 to 7e-4.
+# against a full-rank one and seven times for two pure states, and the worst errors
+# on the draws it survived were 5.4e-4 and 6.9e-4.
 PURE_MARGINAL_EXACT_ATOL = 1e-12
 
 
@@ -254,4 +255,73 @@ def test_swap_wrapper_passes_the_closed_form_switch_through(monkeypatch):
     quantum_wasserstein_squared_swap(rho_a, rho_b)
     assert calls == []
     quantum_wasserstein_squared_swap(rho_a, rho_b, closed_form=False)
+    assert calls == ["CLARABEL"]
+
+
+@pytest.mark.parametrize(("dim_a", "dim_b"), [(2, 3), (3, 2)])
+def test_quantum_ot_sdp_closed_form_handles_unequal_dimensions(dim_a, dim_b):
+    """The product keeps numpy's Kronecker ordering when the two systems differ."""
+    rng = np.random.default_rng(13)
+    rho_a = density_matrix(random_ket(rng, dim_a))
+    rho_b = random_full_rank_state(rng, dim_b)
+    cost = random_hermitian(rng, dim_a * dim_b)
+    value, plan = quantum_ot_sdp(rho_a, rho_b, cost)
+    np.testing.assert_allclose(
+        partial_trace(plan, keep=[0], dims=[dim_a, dim_b]),
+        rho_a,
+        atol=PURE_MARGINAL_EXACT_ATOL,
+    )
+    np.testing.assert_allclose(
+        partial_trace(plan, keep=[1], dims=[dim_a, dim_b]),
+        rho_b,
+        atol=PURE_MARGINAL_EXACT_ATOL,
+    )
+    assert value == pytest.approx(
+        float(np.real(np.trace(cost @ plan))), abs=PURE_MARGINAL_EXACT_ATOL
+    )
+
+
+def test_quantum_ot_sdp_closed_form_agrees_with_the_solver_on_a_qubit_pair():
+    """Formula and solver are two routes to one number where the solver succeeds."""
+    rng = np.random.default_rng(14)
+    for _ in range(3):
+        rho_a = density_matrix(random_ket(rng, 2))
+        rho_b = random_full_rank_state(rng, 2)
+        cost = random_hermitian(rng, 4)
+        exact_value, exact_plan = quantum_ot_sdp(rho_a, rho_b, cost)
+        solver_value, solver_plan = quantum_ot_sdp(
+            rho_a, rho_b, cost, closed_form=False
+        )
+        # Solver accuracy on a pure two-level marginal: measured up to 8.8e-5.
+        assert solver_value == pytest.approx(exact_value, abs=1e-3)
+        np.testing.assert_allclose(solver_plan, exact_plan, atol=1e-3)
+
+
+@pytest.mark.parametrize("name", sorted(matrices_that_are_not_states()))
+@pytest.mark.parametrize("pure_side", ["a", "b"])
+def test_quantum_ot_sdp_sends_an_invalid_marginal_to_the_solver(
+    monkeypatch, name, pure_side
+):
+    """A pure state beside a matrix that is not a state has no coupling at all.
+
+    The product formula must not be applied: the input goes to the solver, which
+    reports the problem as infeasible, as it did before the closed form existed.
+    """
+    calls = count_solver_calls(monkeypatch)
+    pure = np.diag([1.0, 0.0]).astype(complex)
+    invalid = matrices_that_are_not_states()[name]
+    rho_a, rho_b = (pure, invalid) if pure_side == "a" else (invalid, pure)
+    with pytest.raises(RuntimeError, match="did not converge"):
+        quantum_ot_sdp(rho_a, rho_b, swap_cost(2))
+    assert calls == ["CLARABEL"]
+
+
+def test_quantum_ot_sdp_sends_a_non_hermitian_pure_looking_marginal_to_the_solver(
+    monkeypatch,
+):
+    """A matrix whose Hermitian part is pure is not a state when it is not Hermitian."""
+    calls = count_solver_calls(monkeypatch)
+    not_hermitian = np.array([[1.0, 0.3], [-0.3, 0.0]], dtype=complex)
+    with pytest.raises(RuntimeError, match="did not converge"):
+        quantum_ot_sdp(not_hermitian, maximally_mixed(2), swap_cost(2))
     assert calls == ["CLARABEL"]

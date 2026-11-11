@@ -1,5 +1,6 @@
 import warnings
 
+import cvxpy as cp
 import numpy as np
 import pytest
 
@@ -15,6 +16,7 @@ from qot_course.quantum_ot.sdp import (
     quantum_ot_sdp,
 )
 from qot_course.quantum_ot.sinkhorn import (
+    _is_density_matrix,
     _is_pure_state,
     matrix_gibbs_kernel,
     operator_sinkhorn,
@@ -24,6 +26,7 @@ from qot_course.quantum_ot.sinkhorn import (
 )
 from tests.quantum_ot_helpers import (
     count_solver_calls,
+    matrices_that_are_not_states,
     random_full_rank_state,
     random_hermitian,
     random_ket,
@@ -63,7 +66,9 @@ def test_quantum_sinkhorn_approaches_sdp_at_small_epsilon():
     rho_a = density_matrix(KET_PLUS)
     rho_b = maximally_mixed(2)
     C = quadratic_position_cost([0.0, 1.0])
-    sdp_value, _ = quantum_ot_sdp(rho_a, rho_b, C)
+    # |+><+| is pure, so both functions would return the same product formula.
+    # closed_form=False makes the reference the solver's own value.
+    sdp_value, _ = quantum_ot_sdp(rho_a, rho_b, C, closed_form=False)
     small_eps_value = quantum_sinkhorn_cost(rho_a, rho_b, C, epsilon=0.02)
     # The transport cost at small eps should be close to the SDP optimum.
     assert small_eps_value == pytest.approx(sdp_value, abs=0.05)
@@ -310,3 +315,54 @@ def test_quantum_sinkhorn_sdp_objective_matches_its_plan():
     transport = float(np.real(np.trace(C @ plan)))
     entropy_nats = von_neumann_entropy(plan, base=np.e)
     assert value == pytest.approx(transport - eps * entropy_nats, abs=1e-9)
+
+
+# ----------------------------- The closed form needs two density matrices - #
+@pytest.mark.parametrize("name", sorted(matrices_that_are_not_states()))
+def test_is_density_matrix_rejects_matrices_that_are_not_states(name):
+    assert not _is_density_matrix(matrices_that_are_not_states()[name])
+
+
+def test_is_density_matrix_rejects_arrays_that_are_not_square_matrices():
+    assert not _is_density_matrix(np.ones((2, 3), dtype=complex) / 6)
+    assert not _is_density_matrix(np.array([1.0, 0.0], dtype=complex))
+
+
+def test_is_density_matrix_accepts_pure_and_mixed_states_of_any_dimension():
+    rng = np.random.default_rng(21)
+    for dim in (1, 2, 3, 9):
+        assert _is_density_matrix(density_matrix(random_ket(rng, dim)))
+        assert _is_density_matrix(random_full_rank_state(rng, dim))
+    assert _is_density_matrix(np.diag([0.5, 0.3, 0.2]).astype(complex))
+
+
+@pytest.mark.parametrize("name", sorted(matrices_that_are_not_states()))
+@pytest.mark.parametrize("pure_side", ["a", "b"])
+def test_quantum_sinkhorn_sdp_sends_an_invalid_marginal_to_the_solver(
+    monkeypatch, name, pure_side
+):
+    """A pure state beside a matrix that is not a state has no coupling at all.
+
+    The product formula must not be applied: the input goes to the solver, which
+    refuses it.
+    """
+    calls = count_solver_calls(monkeypatch)
+    pure = np.diag([1.0, 0.0]).astype(complex)
+    invalid = matrices_that_are_not_states()[name]
+    rho_a, rho_b = (pure, invalid) if pure_side == "a" else (invalid, pure)
+    cost = quadratic_position_cost([0.0, 1.0])
+    with pytest.raises((RuntimeError, cp.error.SolverError, cp.error.DCPError)):
+        quantum_sinkhorn_sdp(rho_a, rho_b, cost, epsilon=0.4)
+    assert len(calls) == 1
+
+
+def test_quantum_sinkhorn_sdp_sends_a_non_hermitian_pure_looking_marginal_to_the_solver(
+    monkeypatch,
+):
+    """A matrix whose Hermitian part is pure is not a state when it is not Hermitian."""
+    calls = count_solver_calls(monkeypatch)
+    not_hermitian = np.array([[1.0, 0.3], [-0.3, 0.0]], dtype=complex)
+    cost = quadratic_position_cost([0.0, 1.0])
+    with pytest.raises((RuntimeError, cp.error.SolverError, cp.error.DCPError)):
+        quantum_sinkhorn_sdp(not_hermitian, maximally_mixed(2), cost, epsilon=0.4)
+    assert len(calls) == 1

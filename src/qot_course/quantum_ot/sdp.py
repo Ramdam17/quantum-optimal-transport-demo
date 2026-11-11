@@ -41,7 +41,7 @@ from __future__ import annotations
 import cvxpy as cp
 import numpy as np
 
-from qot_course.quantum_ot.sinkhorn import _is_pure_state
+from qot_course.quantum_ot.sinkhorn import _pure_marginal_fixes_the_coupling
 
 
 def swap_matrix(d: int) -> np.ndarray:
@@ -147,21 +147,25 @@ def quantum_ot_sdp(
     :math:`I - \\mathrm{SWAP}` and two pure states this is :math:`1 -
     |\\langle\\psi|\\phi\\rangle|^2`.
 
-    That single point has the rank of the other marginal, below :math:`d_A d_B`, so it
-    sits on the boundary of the PSD cone, where an interior-point method has no interior
-    to walk through. Measured
-    on CLARABEL over ten random draws per case: on three-level systems the solver
-    raised ``SolverError`` nine times for a pure state against a full-rank one and seven
-    times for two pure states, and the draws it survived were off by 5e-4 to 7e-4; the
-    same counts were obtained at the default tolerance and at a gap of 1e-8, so the tight
-    gap requested here is not the cause. On two-level systems the solver never failed
-    and its value was within 8.8e-5 of the formula. The closed form replaces all of
-    this by a Kronecker product, exact to rounding error.
+    When the pure marginal has dimension two or more, that single point has the rank of
+    the other marginal, below :math:`d_A d_B`, so it sits on the boundary of the PSD
+    cone, where an interior-point method has no interior to walk through. Measured on
+    CLARABEL over ten random draws per case (``numpy.random.default_rng(0)``): on
+    three-level systems the solver raised ``SolverError`` on nine draws for a pure state
+    against a full-rank one, the remaining draw being off by 5.4e-4, and on seven draws
+    for two pure states, the worst of the remaining three being off by 6.9e-4. The same
+    counts were obtained at the default tolerance and at a gap of 1e-8, so the tight gap
+    requested here is not the cause. On two-level systems the solver did not fail and
+    its worst error over the ten draws was 8.8e-5. The closed form replaces all of this
+    by a Kronecker product, exact to rounding error.
 
     A marginal is taken as pure when its spectrum equals :math:`(0, \\dots, 0, 1)` within
     1e-12, the test of the entropic solver
     (:func:`qot_course.quantum_ot.sinkhorn.quantum_sinkhorn_sdp`). A nearly pure
-    marginal is not pure and goes to the solver.
+    marginal is not pure and goes to the solver. So does any pair in which one input
+    is not a density matrix (Hermitian, unit trace, no negative eigenvalue, each
+    within 1e-12): such a pair has no coupling, and the solver reports it as
+    infeasible.
 
     The closed form is an elementary consequence of positivity; the SDP itself is the
     coupling problem of Cole, Eckstein, Friedland and Zyczkowski, Math. Phys. Anal.
@@ -184,7 +188,7 @@ def quantum_ot_sdp(
     d_a = rho_a.shape[0]
     d_b = rho_b.shape[0]
 
-    if closed_form and (_is_pure_state(rho_a) or _is_pure_state(rho_b)):
+    if closed_form and _pure_marginal_fixes_the_coupling(rho_a, rho_b):
         # A pure marginal leaves one coupling only, the product (see the Notes).
         product = np.kron(rho_a, rho_b)
         return float(np.real(np.trace(cost @ product))), product
@@ -201,8 +205,10 @@ def quantum_ot_sdp(
     # tight tolerances (1e-10) because the default settings hover around 1e-4, far too
     # loose for closed-form validation tests. CLARABEL frequently cannot *certify* a gap
     # this small and returns status "optimal_inaccurate" (with a UserWarning we leave
-    # visible, not silenced); in practice the returned value is accurate to ~1e-7--1e-8,
-    # which all the closed-form regression tests confirm. We accept that status below.
+    # visible, not silenced). We accept that status below. Measured against closed
+    # forms on two-level inputs, the returned value is within 1e-7 on the pairs the
+    # course uses (|+><+| against I/2, |0> against |1>) and within 8.8e-5 on random
+    # pure pairs; a pure three-level marginal makes the solver fail (see the Notes).
     chosen_solver = solver if solver is not None else "CLARABEL"
     if chosen_solver == "CLARABEL":
         problem.solve(solver="CLARABEL", tol_gap_abs=1e-10, tol_gap_rel=1e-10)
