@@ -107,10 +107,9 @@ def simulate_biharmonic_dyad(
     Raises
     ------
     ValueError
-        If ``dt``, ``duration``, ``n_records`` or ``noise_std`` is not
-        positive (``noise_std`` may be zero only if non-negative is meant: it
-        must be non-negative), if ``burn_in`` is negative, or if ``duration``
-        gives fewer than two samples. The message names the offending argument.
+        If ``dt``, ``duration``, ``n_records`` or ``noise_std`` is not positive,
+        if ``burn_in`` is negative, or if ``duration`` gives fewer than two
+        samples. The message names the offending argument.
 
     Notes
     -----
@@ -135,8 +134,8 @@ def simulate_biharmonic_dyad(
         raise ValueError(f"duration must be positive, got {duration}")
     if n_records < 1:
         raise ValueError(f"n_records must be at least 1, got {n_records}")
-    if noise_std < 0.0:
-        raise ValueError(f"noise_std must be non-negative, got {noise_std}")
+    if noise_std <= 0.0:
+        raise ValueError(f"noise_std must be positive, got {noise_std}")
     if burn_in < 0.0:
         raise ValueError(f"burn_in must be non-negative, got {burn_in}")
     n_steps = int(duration / dt)

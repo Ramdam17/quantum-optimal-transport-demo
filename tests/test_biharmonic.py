@@ -40,7 +40,7 @@ def test_seed_sequence_is_accepted():
 @pytest.mark.parametrize(
     "kwargs, name",
     [({"dt": 0.0}, "dt"), ({"duration": -1.0}, "duration"), ({"n_records": 0}, "n_records"),
-     ({"noise_std": -0.1}, "noise_std"), ({"burn_in": -1.0}, "burn_in"),
+     ({"noise_std": -0.1}, "noise_std"), ({"noise_std": 0.0}, "noise_std"), ({"burn_in": -1.0}, "burn_in"),
      ({"duration": 0.05}, "duration")],   # fewer than two samples
 )
 def test_invalid_arguments_name_the_offender(kwargs, name):
