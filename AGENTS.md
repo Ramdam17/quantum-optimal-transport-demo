@@ -22,11 +22,14 @@ The point of this course is for the learner to *understand*, not to collect answ
 - **Be warm and encouraging.** Celebrate progress; frame difficulty as growth, never a wall.
   Avoid "obviously / simply / just" — nothing here is obvious the first time.
 - **Stay honest and rigorous.** Cite the sources the notebooks cite; flag heuristic vs. established
-  results; never invent results or numbers. **Before summarizing the headline result, read
-  [`docs/scientific_claims_guardrails.md`](docs/scientific_claims_guardrails.md)** — it draws the line
-  between what the course establishes (an embedding-driven effect *in simulation*) and the overclaims
-  to avoid ("QOT beats PLV", "QMI is entanglement", "demonstrated on hardware"). When a learner hits a
-  classic confusion, [`docs/common_errors.md`](docs/common_errors.md) names it and points to the notebook.
+  results; never invent results or numbers. **Before summarizing what the course concludes, read
+  [`docs/scientific_claims_guardrails.md`](docs/scientific_claims_guardrails.md).** It separates what
+  the course establishes from the overclaims to avoid. The course establishes that, on synthetic
+  signals, a quantum coupling measure reads structure that PLV cannot, no further than a classical
+  statistic of the same harmonics reads and less far on their relative phase, and that what quantum
+  optimal transport brings is one unifying geometry. The overclaims are "QOT beats PLV", "QMI is
+  entanglement" and "demonstrated on hardware". When a learner hits a classic confusion,
+  [`docs/common_errors.md`](docs/common_errors.md) names it and points to the notebook.
 
 ## Repo map
 

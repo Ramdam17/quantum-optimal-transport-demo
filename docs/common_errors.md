@@ -16,14 +16,20 @@ really going on, and point you to the notebook that works it through.
 **The intuition.** The phase-locking value is a clean, well-understood synchrony measure. If two
 signals are coupled, PLV sees it — so a quantum measure feels like machinery for its own sake.
 
-**What is really going on.** A coupling measure can only see what your *embedding* hands it. PLV
-reads the first circular moment of the phase difference, `⟨e^{iΔθ}⟩`. Two oscillator ensembles can
-share an *identical* PLV by construction yet differ in their second moment `⟨e^{2iΔθ}⟩` — and a
-richer multi-frequency quantum embedding's mutual information separates them, where PLV and the naive
-phase-qubit embedding are blind. The embedding is the dial; the transport objects are fixed.
+**What is really going on.** A coupling measure reads only what your *embedding* hands it, the
+embedding being the recipe that writes the two signals into a quantum state. PLV is the modulus of
+the first circular moment of the phase difference, `|⟨e^{iΔθ}⟩|`. Two ensembles can share the same
+first moment, hence an *identical* PLV by construction, and differ in their second moment
+`⟨e^{2iΔθ}⟩`. The mutual information of a quantum embedding that carries both moments, the
+multi-frequency qutrit of `04/14`, then differs between them, while PLV and the naive phase-qubit
+embedding, which carries the first moment only, give the same value for both. PLV is not the only
+classical statistic, though: the second-harmonic PLV, `|⟨e^{2iΔθ}⟩|`, reads the same difference, and
+from fewer samples than the qutrit embedding with equal weights needs. So the reason to bother is not
+sensitivity. It is that PLV and the second-harmonic PLV become two readings of one state, measured by
+one distance from independence, with the embedding as the dial that sets what is read.
 
-**Where the course shows it.** `04/13`–`04/16` (the redundancy reveal, the richer embedding, the
-discriminating experiment, and the honest accounting).
+**Where the course shows it.** `04/13`–`04/17` (the redundancy reveal, the richer embedding, the
+discriminating experiment, the test on coupled oscillators, and the weighted embedding).
 
 ## "A reconstructed state with fidelity below 1 means the device decohered."
 
@@ -70,11 +76,14 @@ smoothing behaves as expected.
 intrinsically quantum.
 
 **What is really going on.** The difference lives in the second circular moment, which a *classical*
-higher-order statistic could also detect. The value of quantum optimal transport here is not unique
-detecting power — it is the **unified geometric framework**: one geometry, one pair of measures, with
-the embedding as the single dial that sets what the coupling measure can see.
+statistic, the second-harmonic PLV, also reads, and from fewer samples. On the relative phase of the
+two moments, the quantum measures computed in the course read less than a classical statistic does.
+The value of quantum optimal transport here is the **unified geometric framework**, one state and one
+distance from independence with the embedding as the single dial that sets what the coupling measure
+reads. It is not an exclusive detecting power.
 
-**Where the course shows it.** `04/16` (the honest accounting).
+**Where the course shows it.** `04/15`–`04/17` (the discriminating experiment, the accounting of the
+capstone, and the weighted embedding).
 
 ## "More shots will fix the hardware error."
 
