@@ -14,10 +14,21 @@ embedding, the same subsystem dimensions, nats for information, and the sign
 convention :math:`\\Delta = \\theta_1 - \\theta_2`,
 :math:`m_k = E[e^{ik\\Delta}]`.
 
+The module also holds the protocol that compares two coupling settings
+(:func:`compare_conditions`). It draws independent record sets, reduces each to
+its statistics, and summarises the difference between the settings three ways:
+a signed score against the scatter of a null made of two sets of the same
+setting (:func:`signed_score`), the area under the curve of the raw values
+(:func:`auc`), and a two-sided detection rate (:func:`detection_rate`).
+
 References
 ----------
 G. Gatto, S. R. Jammalamadaka, "The generalized von Mises distribution",
 *Stat. Methodol.* **4**, 341 (2007). DOI: 10.1016/j.stamet.2006.11.003.
+
+J. A. Hanley, B. J. McNeil, "The meaning and use of the area under a receiver
+operating characteristic (ROC) curve", *Radiology* **143**, 29 (1982).
+DOI: 10.1148/radiology.143.1.7063747.
 """
 
 from __future__ import annotations
@@ -26,8 +37,13 @@ from collections.abc import Mapping, Sequence
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
+from scipy.stats import rankdata
 
-from qot_course.quantum_ot.biharmonic import long_run_joint_density
+from qot_course.quantum_ot.biharmonic import (
+    long_run_joint_density,
+    simulate_biharmonic_dyad,
+    stationary_moments,
+)
 from qot_course.quantum_ot.capstone import (
     coupling_bures,
     coupling_qmi,
@@ -39,6 +55,9 @@ from qot_course.quantum_ot.embeddings import (
     multifreq_state,
     weighted_multifreq_state,
 )
+from qot_course.utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 # Keys common to every statistics dictionary, in the order they are returned.
 STATISTIC_KEYS_BASE = (
@@ -61,6 +80,21 @@ _RICH_HARMONICS = (1, 2)
 # number of harmonics of each embedding (derived).
 _NAIVE_DIMS = (1 + len(_NAIVE_HARMONICS), 1 + len(_NAIVE_HARMONICS))
 _RICH_DIMS = (1 + len(_RICH_HARMONICS), 1 + len(_RICH_HARMONICS))
+# Highest circular moment the exact statistics read: long_run_joint_density needs
+# entries up to the largest gap |h_i - h_k| between channel harmonics, which is
+# max(_RICH_HARMONICS) because the DC channel has harmonic 0 (derived).
+_MAX_EXACT_HARMONIC = max(_RICH_HARMONICS)
+# A mean, a standard deviation with ddof=1 or a null band needs at least two
+# finite values (structural: the sample standard deviation is undefined below two).
+_MIN_FINITE_VALUES = 2
+# Number of independent record sets drawn by compare_conditions, in the order
+# A, B, A', A'', B', B'' (structural, fixed by the bench design).
+_N_RECORD_SETS = 6
+# Keys of the model mapping of compare_conditions, and the subset forwarded to the
+# simulator and to stationary_moments (structural).
+_MODEL_KEYS = ("omega_1", "omega_2", "noise_std", "dt", "burn_in", "n_modes")
+_SIMULATOR_KEYS = ("omega_1", "omega_2", "noise_std", "dt", "burn_in")
+_MOMENT_KEYS = ("omega_1", "omega_2", "noise_std", "n_modes")
 
 
 def harmonic_plv(theta_1: ArrayLike, theta_2: ArrayLike, harmonic: int = 1) -> float:
@@ -345,3 +379,396 @@ def long_run_statistics(
         "relphase_cos": rel_cos,
         **_quantum_statistics(rho_naive, rho_rich, rho_weighted),
     }
+
+
+def _finite(values: ArrayLike) -> NDArray[np.float64]:
+    """Flattened float copy of ``values`` with every NaN and infinity removed."""
+    x = np.asarray(values, dtype=float).ravel()
+    return x[np.isfinite(x)]
+
+
+def _mean_and_sd(values: ArrayLike) -> tuple[float, float]:
+    """Mean and standard deviation (ddof=1) of the finite values, NaN below two."""
+    x = _finite(values)
+    if x.size < _MIN_FINITE_VALUES:
+        return float("nan"), float("nan")
+    return float(np.mean(x)), float(np.std(x, ddof=1))
+
+
+def signed_score(observed: ArrayLike, null: ArrayLike) -> float:
+    """Mean observed difference in units of the scatter of null differences.
+
+    Returns :math:`\\bar d / s_0`, where :math:`\\bar d` is the mean of the
+    finite observed differences and :math:`s_0` the standard deviation
+    (``ddof=1``) of the finite null differences. The sign of the observed
+    differences is kept, and no absolute value is taken on either side.
+
+    Parameters
+    ----------
+    observed : array_like, shape (N,)
+        Differences between two settings, record by record (for example B - A),
+        in the units of the statistic. NaN entries are ignored.
+    null : array_like, shape (M,)
+        Differences between two independent sets of the same setting (for
+        example A' - A''), in the same units. NaN entries are ignored.
+
+    Returns
+    -------
+    score : float
+        Dimensionless. NaN when either side has fewer than two finite values,
+        or when the finite null values are all equal (zero scatter), so that a
+        constant statistic never produces an infinite score.
+
+    Notes
+    -----
+    When to use: to say how far, and in which direction, a statistic moves
+    between two settings compared with how much it moves between two sets of
+    the same setting. Why the sign is kept: an earlier analysis in this course
+    compared an observed difference with the absolute values of a small set of
+    null differences. Taking the absolute value folds the null onto the
+    positive half-line, which shrinks its apparent scatter around zero and
+    inflates the score; it also hides a statistic that moves in the wrong
+    direction. Here both sides stay signed, and a negative score means the
+    statistic decreased from the first setting to the second.
+
+    The score assumes nothing about the shape of the null and is not
+    invariant under a monotone change of the statistic; :func:`auc` is, which
+    is why the protocol reports both.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> round(signed_score([-2.0, -2.0], [-1.0, 1.0, -1.0, 1.0]), 4)
+    -1.7321
+    >>> bool(np.isnan(signed_score([1.0, 2.0], [3.0, 3.0, 3.0])))
+    True
+    """
+    obs = _finite(observed)
+    nul = _finite(null)
+    if obs.size < _MIN_FINITE_VALUES or nul.size < _MIN_FINITE_VALUES:
+        return float("nan")
+    # Test constancy exactly rather than sd == 0: the mean of equal values that
+    # are not exactly representable can leave a round-off scatter near 1e-17,
+    # which would turn a constant statistic into an enormous score.
+    if np.max(nul) == np.min(nul):
+        return float("nan")
+    return float(np.mean(obs) / np.std(nul, ddof=1))
+
+
+def auc(a: ArrayLike, b: ArrayLike) -> float:
+    """Area under the ROC curve that separates the values of ``a`` from ``b``.
+
+    Returns the probability that a value drawn from ``b`` exceeds a value drawn
+    from ``a``, over all pairs of finite values, with ties counted one half.
+    This is the Mann--Whitney statistic of ``b`` divided by the number of pairs,
+    which Hanley & McNeil (1982) showed equals the area under the empirical ROC
+    curve.
+
+    Parameters
+    ----------
+    a, b : array_like, shape (N,) and (M,)
+        Values of one statistic on the records of two settings, in the units of
+        the statistic. NaN entries are ignored.
+
+    Returns
+    -------
+    area : float
+        Dimensionless, in [0, 1]: 0.5 when the two sets are indistinguishable,
+        1 when every value of ``b`` exceeds every value of ``a``, 0 in the
+        reverse case. NaN when either side has no finite value.
+
+    Notes
+    -----
+    When to use: beside :func:`signed_score`. The area depends only on the
+    ranks of the values, so it is unchanged by any strictly increasing map of
+    the statistic and is not dominated by a few extreme records. The score is
+    in units of a null scatter and changes when the statistic is reshaped, for
+    example when an information measure is compared with its square root;
+    reporting both separates a real difference from an effect of scale.
+    Reference: J. A. Hanley, B. J. McNeil, *Radiology* **143**, 29 (1982),
+    DOI: 10.1148/radiology.143.1.7063747.
+
+    Examples
+    --------
+    >>> round(auc([0.1, 0.2, 0.3], [0.25, 0.4, 0.5]), 4)
+    0.8889
+    >>> auc([0.1, 0.2], [0.1, 0.2])
+    0.5
+    """
+    xa = _finite(a)
+    xb = _finite(b)
+    if xa.size == 0 or xb.size == 0:
+        return float("nan")
+    # Mann-Whitney U of b from the joint mid-ranks: the sum of the ranks of b
+    # minus its smallest possible value counts the pairs with b > a, ties one
+    # half. Computed directly so that no p-value (and no warning on a set of
+    # identical values) is involved.
+    ranks = rankdata(np.concatenate([xa, xb]))
+    u_b = float(np.sum(ranks[xa.size :])) - xb.size * (xb.size + 1) / 2.0
+    return u_b / (xa.size * xb.size)
+
+
+def detection_rate(
+    observed: ArrayLike, null: ArrayLike, *, false_alarm_rate: float = 0.05
+) -> float:
+    """Fraction of observed differences outside the central band of the null.
+
+    The band runs from the ``false_alarm_rate / 2`` quantile to the
+    ``1 - false_alarm_rate / 2`` quantile of the finite null differences, so
+    both tails count and a difference of either sign can be detected.
+
+    Parameters
+    ----------
+    observed : array_like, shape (N,)
+        Differences between two settings, record by record, in the units of the
+        statistic. NaN entries are ignored.
+    null : array_like, shape (M,)
+        Differences between two independent sets of the same setting, in the
+        same units. NaN entries are ignored.
+    false_alarm_rate : float, default 0.05
+        Fraction of null differences expected outside the band, in (0, 1).
+
+    Returns
+    -------
+    rate : float
+        Fraction in [0, 1] of the finite observed differences strictly below
+        the lower or strictly above the upper bound. NaN when either side has
+        fewer than two finite values.
+
+    Raises
+    ------
+    ValueError
+        If ``false_alarm_rate`` is not strictly between 0 and 1.
+
+    Notes
+    -----
+    When to use: to read, record by record, how often a statistic would flag
+    the difference between two settings at a fixed false-alarm rate. When the
+    observed and null differences have the same distribution the rate is close
+    to ``false_alarm_rate``; with few null values the band is coarse and the
+    false-alarm rate is only approximate.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> null = np.random.default_rng(0).standard_normal(10_000)
+    >>> detection_rate(null[:100] + 10.0, null)
+    1.0
+    """
+    if not 0.0 < false_alarm_rate < 1.0:
+        raise ValueError(
+            f"false_alarm_rate must be strictly between 0 and 1, got {false_alarm_rate}"
+        )
+    obs = _finite(observed)
+    nul = _finite(null)
+    if obs.size < _MIN_FINITE_VALUES or nul.size < _MIN_FINITE_VALUES:
+        return float("nan")
+    low, high = np.quantile(nul, [false_alarm_rate / 2.0, 1.0 - false_alarm_rate / 2.0])
+    return float(np.mean((obs < low) | (obs > high)))
+
+
+def _set_statistics(
+    condition: tuple[float, float],
+    *,
+    label: str,
+    seed: np.random.SeedSequence,
+    duration: float,
+    n_records: int,
+    simulator_kwargs: Mapping[str, float],
+    weight_sets: Mapping[str, Sequence[float]],
+    min_first_moment: float,
+) -> dict[str, NDArray[np.float64]]:
+    """Simulate one record set and reduce it to one array of values per statistic.
+
+    The phases are local to this call, so they are released before the next set
+    is simulated and two sets of phases are never held at once.
+    """
+    k1, k2 = condition
+    logger.info(
+        "Simulating set %s: K1=%g, K2=%g, %d records of %g s",
+        label,
+        k1,
+        k2,
+        n_records,
+        duration,
+    )
+    theta_1, theta_2 = simulate_biharmonic_dyad(
+        k1,
+        k2,
+        n_records=n_records,
+        duration=duration,
+        seed=seed,
+        **simulator_kwargs,
+    )
+    per_record = [
+        record_statistics(
+            theta_1[r],
+            theta_2[r],
+            weight_sets=weight_sets,
+            min_first_moment=min_first_moment,
+        )
+        for r in range(n_records)
+    ]
+    return {key: np.array([s[key] for s in per_record]) for key in per_record[0]}
+
+
+def compare_conditions(
+    condition_a: tuple[float, float],
+    condition_b: tuple[float, float],
+    *,
+    duration: float,
+    n_records: int,
+    seed: int | np.random.SeedSequence,
+    model: Mapping[str, float],
+    weight_sets: Mapping[str, Sequence[float]],
+    false_alarm_rate: float = 0.05,
+    min_first_moment: float = 0.05,
+) -> list[dict[str, float | str]]:
+    """Compare every statistic of the bench between two coupling settings.
+
+    Six independent record sets are drawn from
+    ``np.random.SeedSequence(seed).spawn(6)`` in the fixed order A, B, A', A'',
+    B', B'', where A and its copies use ``condition_a`` and B and its copies use
+    ``condition_b``. The observed differences are B - A, record by record. The
+    null differences are A' - A'', two sets of the reference setting; B' - B''
+    gives the scatter of the second setting for comparison. Each set is
+    simulated, reduced to its statistics and released before the next one, so
+    memory holds one set of phases at a time.
+
+    Parameters
+    ----------
+    condition_a, condition_b : tuple of float
+        Couplings ``(K1, K2)`` in rad/s of the reference setting A and of the
+        compared setting B.
+    duration : float
+        Analysed length of each record in seconds, after the discarded burn-in.
+    n_records : int
+        Number of records in each of the six sets.
+    seed : int or numpy.random.SeedSequence
+        Master seed; the six sets use its six spawned children.
+    model : mapping of str to float
+        Model settings with the keys ``omega_1``, ``omega_2`` (rad/s),
+        ``noise_std`` (rad/sqrt(s)), ``dt`` and ``burn_in`` (s), forwarded to
+        :func:`qot_course.quantum_ot.biharmonic.simulate_biharmonic_dyad`, and
+        ``n_modes``, forwarded with the frequencies and the noise to
+        :func:`qot_course.quantum_ot.biharmonic.stationary_moments`.
+    weight_sets : mapping of str to sequence of float
+        Weighted embeddings, as in :func:`record_statistics`.
+    false_alarm_rate : float, default 0.05
+        Two-sided false-alarm rate of :func:`detection_rate`.
+    min_first_moment : float, default 0.05
+        Threshold on :math:`|m_1|` of the relative-phase components, as in
+        :func:`record_statistics` (heuristic).
+
+    Returns
+    -------
+    rows : list of dict
+        One row per statistic, in the order of :func:`record_statistics`, with
+        the keys ``statistic`` (name), ``mean_a``, ``mean_b``, ``sd_a``,
+        ``sd_b`` (mean and standard deviation, ``ddof=1``, over the finite
+        values of sets A and B), ``exact_a``, ``exact_b`` (long-run values of
+        :func:`long_run_statistics`), ``score`` (:func:`signed_score` of B - A
+        against A' - A''), ``auc`` (:func:`auc` of the raw values of A and B),
+        ``detection_rate`` (:func:`detection_rate` of B - A against
+        A' - A''), ``null_sd_a`` and ``null_sd_b`` (standard deviations of the
+        finite values of A' - A'' and B' - B'') and ``n_valid`` (number of
+        records at which both A and B are finite). Summaries computed on fewer
+        than two finite values are NaN.
+
+    Raises
+    ------
+    ValueError
+        If ``model`` lacks one of its keys (the message names it), or if the
+        simulator or :func:`qot_course.quantum_ot.biharmonic.stationary_moments`
+        rejects a setting.
+
+    Notes
+    -----
+    When to use: for every detection comparison of the bench, where a
+    statistic has to tell the reference setting from a second one on records
+    of finite length. A statistic can be undefined on some records: the
+    relative-phase components are NaN when the sample :math:`|m_1|` is below
+    ``min_first_moment``, which happens on many records of an uncoupled dyad,
+    and their exact values are NaN whenever :math:`K_1 = 0`. Such records are
+    left out of the summaries, ``n_valid`` reports how many remain, and
+    nothing is raised. The area under the curve follows Hanley & McNeil
+    (1982), DOI: 10.1148/radiology.143.1.7063747.
+
+    Examples
+    --------
+    >>> model = {"omega_1": 1.0, "omega_2": 1.2, "noise_std": 0.3,
+    ...          "dt": 0.05, "burn_in": 50.0, "n_modes": 200}
+    >>> rows = compare_conditions((0.0, 0.0), (0.0, 0.1), duration=20.0,
+    ...                           n_records=4, seed=0, model=model, weight_sets={})
+    >>> rows[1]["statistic"], round(rows[1]["exact_b"], 3)
+    ('plv2', 0.362)
+    """
+    missing = [key for key in _MODEL_KEYS if key not in model]
+    if missing:
+        raise ValueError(f"model is missing the key(s) {', '.join(missing)}")
+    simulator_kwargs = {key: model[key] for key in _SIMULATOR_KEYS}
+    moment_kwargs = {key: model[key] for key in _MOMENT_KEYS}
+
+    exact = {
+        label: long_run_statistics(
+            stationary_moments(
+                k1, k2, max_harmonic=_MAX_EXACT_HARMONIC, **moment_kwargs
+            ),
+            weight_sets=weight_sets,
+            min_first_moment=min_first_moment,
+        )
+        for label, (k1, k2) in (("A", condition_a), ("B", condition_b))
+    }
+
+    labels = ("A", "B", "A'", "A''", "B'", "B''")
+    conditions = (
+        condition_a,
+        condition_b,
+        condition_a,
+        condition_a,
+        condition_b,
+        condition_b,
+    )
+    children = np.random.SeedSequence(seed).spawn(_N_RECORD_SETS)
+    sets = {
+        label: _set_statistics(
+            condition,
+            label=label,
+            seed=child,
+            duration=duration,
+            n_records=n_records,
+            simulator_kwargs=simulator_kwargs,
+            weight_sets=weight_sets,
+            min_first_moment=min_first_moment,
+        )
+        for label, condition, child in zip(labels, conditions, children, strict=True)
+    }
+
+    rows: list[dict[str, float | str]] = []
+    for key in sets["A"]:
+        a, b = sets["A"][key], sets["B"][key]
+        observed = b - a
+        null_a = sets["A'"][key] - sets["A''"][key]
+        null_b = sets["B'"][key] - sets["B''"][key]
+        mean_a, sd_a = _mean_and_sd(a)
+        mean_b, sd_b = _mean_and_sd(b)
+        rows.append(
+            {
+                "statistic": key,
+                "mean_a": mean_a,
+                "mean_b": mean_b,
+                "sd_a": sd_a,
+                "sd_b": sd_b,
+                "exact_a": float(exact["A"][key]),
+                "exact_b": float(exact["B"][key]),
+                "score": signed_score(observed, null_a),
+                "auc": auc(a, b),
+                "detection_rate": detection_rate(
+                    observed, null_a, false_alarm_rate=false_alarm_rate
+                ),
+                "null_sd_a": _mean_and_sd(null_a)[1],
+                "null_sd_b": _mean_and_sd(null_b)[1],
+                "n_valid": int(np.count_nonzero(np.isfinite(a) & np.isfinite(b))),
+            }
+        )
+    return rows
