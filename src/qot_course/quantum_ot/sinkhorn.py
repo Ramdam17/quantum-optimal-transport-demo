@@ -25,7 +25,9 @@ Schmitzer, 2019; Pelikh, Gerolin et al.).
 
 For pedagogical clarity we solve the entropic SDP directly via cvxpy's
 :func:`cvxpy.von_neumann_entr` atom rather than running the explicit operator iteration.
-Both approaches yield the same plan.
+The two approaches return the same plan when :math:`\\rho_A`, :math:`\\rho_B` and
+:math:`C` commute, where both reduce to classical Sinkhorn. Off the commuting case they
+are different objects and their plans differ; see the notes of :func:`operator_sinkhorn`.
 
 References: M. Cuturi, "Sinkhorn distances", NeurIPS (2013); G. Peyre, L. Chizat, F.-X.
 Vialard, B. Schmitzer, "Quantum entropic regularization of matrix-valued optimal
@@ -40,6 +42,7 @@ import numpy as np
 import scipy.linalg as spla
 
 from qot_course.quantum.composite import partial_trace
+from qot_course.quantum.density import von_neumann_entropy
 
 
 def matrix_gibbs_kernel(cost: np.ndarray, epsilon: float) -> np.ndarray:
@@ -71,6 +74,14 @@ def quantum_sinkhorn_sdp(
     cvxpy's :func:`cvxpy.von_neumann_entr` uses the *natural log* convention; the
     classical Sinkhorn module's :math:`\\varepsilon` in S10 was in the same convention,
     so the comparison is direct.
+
+    The returned objective is evaluated on the returned plan, with the convention
+    :math:`0 \\log 0 = 0`, rather than read from ``problem.value``. When a marginal is
+    rank-deficient (a pure state, for instance) the optimal plan lies on the boundary of
+    the PSD cone, the solver returns eigenvalues of order :math:`-10^{-7}` there, and
+    cvxpy's own evaluation of the entropy at that point is :math:`-\\infty`, which made
+    the reported objective ``inf``. On such boundary cases the solver stops with status
+    ``"optimal_inaccurate"`` and the plan is accurate to about :math:`10^{-3}` only.
     """
     rho_a = np.asarray(rho_a, dtype=complex)
     rho_b = np.asarray(rho_b, dtype=complex)
@@ -101,7 +112,12 @@ def quantum_sinkhorn_sdp(
         raise RuntimeError(
             f"Quantum Sinkhorn SDP did not converge ({problem.status})."
         )
-    return float(problem.value), np.asarray(plan.value, dtype=complex)
+    plan_value = np.asarray(plan.value, dtype=complex)
+    # Evaluate the objective on the plan itself: ``problem.value`` is ``inf`` whenever the
+    # plan touches the boundary of the PSD cone (see the docstring note).
+    transport_value = float(np.real(np.trace(cost @ plan_value)))
+    entropy_nats = von_neumann_entropy(plan_value, base=np.e)
+    return transport_value - float(epsilon) * entropy_nats, plan_value
 
 
 def quantum_sinkhorn_cost(
