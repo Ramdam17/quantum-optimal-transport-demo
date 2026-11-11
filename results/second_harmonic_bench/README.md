@@ -1,0 +1,73 @@
+# Results of the free-second-harmonic bench
+
+This directory holds the output of one full run of `scripts/run_second_harmonic_bench.py`. It describes the files and how to read their columns. It states no conclusion about the measures: the reading of these numbers belongs to the course, not to this directory.
+
+## What the bench is
+
+The bench simulates two noisy phase oscillators whose coupling has a first and a second harmonic of their phase difference, with strengths `k1` and `k2`. The phase difference is Δ = θ₁ − θ₂ and its circular moments are m₁ = E[exp(iΔ)] and m₂ = E[exp(2iΔ)]. The model, the exact solvers and the statistics live in `src/qot_course/quantum_ot/biharmonic.py` and `src/qot_course/quantum_ot/bench_protocol.py`. Every tunable value comes from the section `second_harmonic_bench` of `config/base.yaml`.
+
+Each simulated statistic sits next to two exact long-run values, because the bench has two exact references. The first is the model in continuous time: its moments come from the stationary solution of the Fokker–Planck equation (`stationary_moments`). The second is the Euler–Maruyama scheme that the simulator actually runs, at its time step: a scheme with a finite step has a stationary law of its own, and its moments are also computed exactly, without simulation (`discretised_stationary_moments`). The mean of a simulated statistic converges to the second reference, not to the first, as the records get longer. Columns named `exact_*` refer to the continuous-time model and columns named `exact_discrete_*` to the simulated scheme.
+
+## The run
+
+The files were produced on 2026-11-11 (UTC) at commit `4db74ee`, in 1,084 seconds, by the command below, run from the repository root.
+
+```bash
+uv run python scripts/run_second_harmonic_bench.py
+```
+
+The commit that follows `4db74ee` rewrites three comments and changes no line of code or configuration value. The same command regenerates the directory. The seeds are fixed by the configuration, so a second run at the same commit writes the same numbers; only the date and the wall time of `run_metadata.json` change. The metadata records `git_dirty` as true for this run. The only modified tracked file at launch was the `.DS_Store` of the repository root, which the Finder rewrites; no file of code or configuration differed from the commit.
+
+## Conventions shared by all files
+
+A number that is undefined is written as an empty cell in the CSV files and as `null` in the JSON files. Quantum mutual information is in nats. Durations are in seconds, time steps in seconds, and coupling strengths in radians per second. The statistics computed on each record are the following.
+
+| Name | Meaning |
+|---|---|
+| `plv` | Phase-locking value, the modulus of the first circular moment of the record. |
+| `plv2` | Modulus of the second circular moment of the record. |
+| `relphase_sin`, `relphase_cos` | The two components \|m₂\| sin β and \|m₂\| cos β of the relative phase β = arg(m₂ · conj(m₁)²). They are treated as undefined on a record whose \|m₁\| is below `protocol.min_first_moment`. |
+| `qmi_naive` | Quantum mutual information of the embedding that carries the first harmonic only. |
+| `qmi_rich` | Quantum mutual information of the embedding that carries the first and the second harmonic. |
+| `bures_rich` | Bures distance between the joint density of the richer embedding and the product of its marginals. |
+| `qmi_weighted_02`, `qmi_weighted_05` | Quantum mutual information of the richer embedding with the two channel weightings of notebook 04/17, listed under `weight_sets` in the configuration. |
+
+The relative phase is undefined under two different rules, one per kind of value. For an exact long-run value it is undefined when `k1 = 0`, because the exact first moment is then zero and β has no direction to be measured from. For a simulated record it is undefined when the first moment of that record is below the threshold, whatever the setting.
+
+## `map.csv`
+
+One row per point of the grid of couplings, with exact long-run values of the continuous-time model only. The columns `k1` and `k2` are the coupling strengths. The columns `m1_re`, `m1_im`, `m2_re` and `m2_im` are the real and imaginary parts of the two exact moments, and `abs_m1` and `abs_m2` are their moduli. The column `relative_phase` is β in radians; it is empty where `k1 = 0`. The column `qmi_rich_exact` is the exact quantum mutual information of the richer embedding. At the uncoupled point it reads about −4 × 10⁻¹⁶, which is zero up to rounding.
+
+## `freedom.csv`
+
+One row per bin of `abs_m1` of width 0.05 that holds at least one grid point of `map.csv`. The columns `abs_m1_low` and `abs_m1_high` are the edges of the bin and `n_points` is the number of grid points in it. The columns `abs_m2_min` and `abs_m2_max` are the smallest and the largest exact `abs_m2` among those points. The column `abs_m2_at_k2_zero` is the exact `abs_m2` of the setting without second harmonic whose `abs_m1` equals the centre of the bin; it is empty when no `k1` below `solver.k1_search_max` reaches that centre.
+
+## `continuity.json`
+
+The file follows the grid of `k1` at `k2 = 0`, in the continuous-time model. The lists `k1`, `abs_m1`, `abs_m2` and `qmi_rich` hold the exact values along that line. The entries `spearman_abs_m1_abs_m2` and `spearman_abs_m1_qmi_rich` are the Spearman rank correlations exactly as `scipy.stats.spearmanr` returns them. The two booleans `ranks_identical_abs_m1_abs_m2` and `ranks_identical_abs_m1_qmi_rich` say whether the rank vectors are equal element by element. Both are written because the coefficient is a floating-point computation that can return 0.9999999999999999 for identical ranks; the boolean is the exact statement. These statements hold on the listed values of `k1` and are not a claim beyond that range.
+
+## `timestep_check.csv`
+
+One row per setting and per time step. This file compares the simulator with both exact references. The columns `k1`, `k2` and `dt` identify the row and `n_records` is the number of simulated records, each of `timestep_check.duration_s` seconds. For each of the two moments, `abs_m*_exact` is the modulus in the continuous-time model, `abs_m*_sim` is the modulus of the mean over records of the complex record moments, and `abs_m*_se` is the standard error of that modulus, computed from the scatter of the record moments along the direction of their mean. The column `abs_m*_gap_se` is the simulated value minus the continuous-time one, divided by that standard error; it measures the bias of the time step and shrinks with `dt`. The column `abs_m*_exact_discrete` is the modulus for the scheme at the step of the row, and `abs_m*_gap_discrete_se` is the simulated value minus that one, in standard errors; it checks the simulator against its own exact law and should stay within a few units at every step. When the exact modulus is zero, as for the first moment at `k1 = 0`, the simulated modulus is biased upward by the finite number of records and neither gap has a meaning.
+
+## `comparisons.csv`
+
+One row per comparison, record duration, master seed and statistic. A comparison opposes a reference setting A to a second setting B. The column `experiment` takes four values. In `detection`, A is the uncoupled pair and B has a second harmonic only. In `equal_plv`, A has no second harmonic and B has one, with `k1` solved so that both have the same exact `abs_m1`. In `equal_moduli`, A and B have the same exact `abs_m1` and the same exact `abs_m2` and differ by their relative phase. The pairs of these two experiments are matched on the simulated scheme, so the equalities hold for the `exact_discrete_*` values and only approximately for the continuous-time `exact_*` values. In `trap`, A is the uncoupled pair and B has a second harmonic of strength `trap.k2`, strong enough for the phase difference to stay in one of its two wells over a whole record; this experiment is kept apart from the others, and its exact values describe a long-run law that such a record does not explore. The columns `label`, `k1_a`, `k2_a`, `k1_b` and `k2_b` identify the two settings, `duration_s` is the length of each record and `master_seed` the seed of the repetition.
+
+For each comparison six independent sets of `protocol.n_records` records are simulated: A, B, two further sets of A and two further sets of B. The columns `mean_a`, `mean_b`, `sd_a` and `sd_b` are the mean and the standard deviation of the statistic over the records of A and of B. The columns `exact_a` and `exact_b` are its long-run values in the continuous-time model, and `exact_discrete_a` and `exact_discrete_b` its long-run values for the simulated scheme. The difference between a mean and its `exact_discrete` value is the bias of a record of finite length; the difference between the two exact values is the bias of the time step. The first harmonic illustrates the first of these: with a second harmonic only, the exact phase-locking value is zero, so the first harmonic is blind to that coupling in the long run, while a record of finite length carries a first moment that is not zero and that the coupling changes.
+
+The column `score` is the mean of the differences B − A, record by record, divided by the standard deviation of the differences between the two further sets of A. Its sign is kept: a negative score means that the statistic is lower in B than in A. Scores are not comparable from one statistic to another, because the statistics are nonlinear functions of one another with different scatters under the null. The column `auc` is the area under the receiver operating characteristic curve of the raw values of A and B, that is, the probability that a record of B has a larger value than a record of A, ties counting for one half (Hanley and McNeil, 1982, DOI 10.1148/radiology.143.1.7063747); it is comparable across statistics. The column `detection_rate` is the fraction of the differences B − A that fall outside the central band holding a fraction 1 − `protocol.false_alarm_rate` of the differences between the two further sets of A. The two edges of the band are quantiles computed with the Weibull rule, which numpy's documentation identifies as definition 6 of Hyndman and Fan (1996, DOI 10.1080/00031305.1996.10473566). Measured under an exact null, the mean false-alarm rate of this band is 0.049 with 100 null values, 0.065 with 30 and 0.18 with 10, for a nominal 0.05; the rate of a single comparison of 100 values lies between 0.00 and 0.12 in 95 % of cases. The columns `null_sd_a` and `null_sd_b` are the standard deviations of the differences between the two further sets of A and of B. The column `n_valid` is the number of records at which the statistic is defined in both A and B, and `n_null` is the number of defined differences between the two further sets of A, on which `score` and `detection_rate` rest. The columns `mean_a`, `sd_a`, `mean_b`, `sd_b` and `auc` use every defined value of a set and can therefore rest on more records than `n_valid`.
+
+Two points govern the reading of these columns. First, the band of the detection rate comes from the scatter of A alone, so the rate rises when B is merely more variable than A, with no shift of the mean; a high rate next to a score near zero and an area near 0.5 has that meaning, and `null_sd_b` against `null_sd_a` shows it. Second, in the experiments whose reference is uncoupled (`detection` and `trap`), the rows of the relative-phase statistics describe the few records that passed the threshold on the first moment by chance, and `n_valid` and `n_null` say how few they are; with a band that rests on a handful of values the false-alarm rate is far above the nominal one, as the figures above show.
+
+## `summary.csv`
+
+One row per experiment, label, duration and statistic, summarising `comparisons.csv` over the master seeds. The column `n_seeds` is the number of master seeds, and `n_seeds_score_defined`, `n_seeds_auc_defined` and `n_seeds_detection_defined` are the numbers of seeds for which each quantity is defined. The columns `score_mean`, `score_min` and `score_max` are the mean, the smallest and the largest score over those seeds; the columns of `auc` and `detection_rate` follow the same pattern. The columns `mean_a` and `mean_b` are the means over seeds of the columns of the same name, placed next to `exact_a`, `exact_b`, `exact_discrete_a` and `exact_discrete_b`. The columns `mean_n_valid` and `mean_n_null` are the means over seeds of `n_valid` and `n_null`, and `mean_null_sd_a` and `mean_null_sd_b` those of `null_sd_a` and `null_sd_b`.
+
+## `reliability.csv`
+
+One row per experiment, label and statistic, for the three experiments `detection`, `equal_plv` and `equal_moduli`. The trap has no row: its records do not explore the long-run law, so a shortest reliable duration has no meaning there. The column `shortest_reliable_duration_s` is the shortest configured duration at which the mean detection rate over seeds reaches `reliability_threshold`; it is empty when no configured duration reaches it or when the rate is undefined. The threshold of 0.8 is the usual convention for statistical power, not a quantity derived from this problem, and the column `threshold_is_a_convention` repeats that in every row. The columns `mean_n_valid` and `mean_n_null` are those of `summary.csv` at the reported duration. They matter for the relative-phase statistics of the experiment `detection`, where a duration can be reported on the strength of one or two records. The reading of the detection rate given above applies here as well: a duration counts as reliable for a statistic that separates the two settings by its scatter alone.
+
+## `run_metadata.json`
+
+The entry `config` is the resolved section of the configuration, and `config_path` the file it came from, written relative to the repository root. The entry `quick` is false: the reduced configuration of the option `--quick` was not used. The entries `git_commit` and `git_dirty` identify the code, `python_version`, `numpy_version` and `scipy_version` the software, `utc_date` the date and `wall_time_s` the duration of the run. The entry `timestep_check_seed` is the root seed of the time-step check. The list `solved_settings` gives, for every comparison, the two settings that were simulated and the position of its seeds in the seed tree. For a pair that comes from a solver it also gives the law on which the pair was matched (`matched_on`, with the step `matched_dt`) and, for the comparison at equal moduli, the solved pair with its residual on that law. The list `comparisons_not_made` names every comparison that could not be run, with the reason; it is empty for this run.
