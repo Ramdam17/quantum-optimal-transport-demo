@@ -11,3 +11,52 @@ capstone:
   sweep_duration_s: 200.0   # default simulation duration per K value (seconds)
   sweep_seed: 0             # default RNG seed for reproducibility
   example_duration_s: 120.0 # duration used in docstring examples and quick demos
+
+# Free-second-harmonic bench (scripts/run_second_harmonic_bench.py).
+# Spec: docs/superpowers/specs/2026-11-11-free-second-harmonic-bench-design.md
+second_harmonic_bench:
+  model:
+    omega_1: 1.0        # rad/s, as in notebook 04/11
+    omega_2: 1.2        # rad/s, as in notebook 04/11
+    noise_std: 0.3      # rad / sqrt(s), as in notebook 04/11
+    dt: 0.05            # s, Euler-Maruyama step
+    burn_in_s: 50.0     # s discarded before the analysed record
+  solver:
+    n_modes: 200        # Fourier truncation of the stationary Fokker-Planck solution
+    k1_search_max: 3.0  # upper end of the root search for a matched phase-locking value
+  map:
+    k1: {min: 0.0, max: 0.5, points: 26}
+    k2: {min: -0.5, max: 0.5, points: 41}
+  protocol:
+    n_records: 100               # per record set; the audit asked for at least 50 null draws
+    durations_s: [200.0, 800.0, 3200.0]
+    master_seeds: [0, 1, 2, 3, 4]
+    false_alarm_rate: 0.05       # two-sided
+    reliability_threshold: 0.8   # usual power convention, not a derived quantity
+    min_first_moment: 0.05       # heuristic: relative-phase numbers are undefined below it
+  weight_sets:                   # the two channel weightings of notebook 04/17
+    qmi_weighted_02: [1.0, 0.2, 2.0]
+    qmi_weighted_05: [1.0, 0.5, 2.0]
+  detection:
+    k2_values: [0.05, 0.10, 0.15]
+  equal_plv:
+    - {target: 0.3, k2: -0.10}
+    - {target: 0.3, k2: 0.05}
+    - {target: 0.6, k2: -0.15}
+    - {target: 0.6, k2: 0.04}
+  equal_moduli:
+    k1_ref: 0.05
+    k2_ref: 0.12
+    k2_bound: 0.15
+    tolerance: 1.0e-6
+  trap:
+    k2: 0.3
+  timestep_check:
+    dt_values: [0.05, 0.025]
+    settings: [[0.3, 0.0], [0.1, 0.1], [0.0, 0.1], [0.06, -0.10]]
+    duration_s: 2000.0
+    n_records: 64
+  quick:                         # overrides used by --quick and by the smoke test
+    map: {k1: {points: 4}, k2: {points: 5}}
+    protocol: {n_records: 6, durations_s: [20.0], master_seeds: [0]}
+    timestep_check: {duration_s: 40.0, n_records: 4}
