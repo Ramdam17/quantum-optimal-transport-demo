@@ -581,10 +581,12 @@ def detection_rate(
     expected false-alarm rate is close to ``false_alarm_rate``, whatever the
     law, as long as the two requested quantiles fall inside the sample.
     Measured under an exact null, with 100 observed differences per comparison
-    and normal, Student (3 degrees of freedom) and exponential laws agreeing to
-    0.005, the mean false-alarm rate at ``false_alarm_rate = 0.05`` is 0.049
-    with 100 null values, 0.065 with 30 and 0.18 with 10, against 0.068, 0.104
-    and 0.21 with numpy's default linear rule. With few null values the
+    and normal, Student (3 degrees of freedom) and exponential laws, the mean
+    false-alarm rate at ``false_alarm_rate = 0.05`` under the Weibull rule is
+    0.049 with 100 null values, 0.065 with 30 and 0.18 with 10, the three laws
+    agreeing to 0.0024, 0.0007 and 0.0003 respectively. Under numpy's default
+    linear rule it is 0.068 with 100 null values, about 0.10 with 30 (the laws
+    spread from 0.098 to 0.107) and 0.21 with 10. With few null values the
     requested quantiles fall outside the sample, the band is the range of the
     sample, and the rate is above the nominal one. A single comparison still
     scatters: with 100 null values and 100 differences, the rate of one
@@ -791,7 +793,8 @@ def compare_conditions(
     ...          "dt": 0.05, "burn_in": 50.0, "n_modes": 200}
     >>> rows = compare_conditions((0.0, 0.0), (0.0, 0.1), duration=20.0,
     ...                           n_records=4, seed=0, model=model, weight_sets={})
-    >>> rows[1]["statistic"], round(rows[1]["exact_b"], 3), round(rows[1]["exact_discrete_b"], 3)
+    >>> row = rows[1]
+    >>> row["statistic"], round(row["exact_b"], 3), round(row["exact_discrete_b"], 3)
     ('plv2', 0.362, 0.359)
     """
     missing = [key for key in _MODEL_KEYS if key not in model]

@@ -252,7 +252,8 @@ def test_discretised_moments_tend_to_the_continuous_ones_at_a_small_step(k1, k2)
     # The step bias is first order in dt. At dt = 0.05 the largest component gap to the
     # continuous-time moments over these settings is 5.5e-3 (trap setting), so at dt = 1e-4,
     # 500 times smaller, the expected gap is at most about 1.1e-5. The tolerance 2e-5 allows
-    # for that bias and nothing else: the numerical error of either solver is below 1e-12.
+    # for that bias and nothing else: the numerical error of the scheme's solver, measured
+    # against a dense solve that drops no coefficient, is below 1e-13 at this step.
     discrete = discretised_stationary_moments(k1, k2, dt=1e-4)
     continuous = stationary_moments(k1, k2)
     np.testing.assert_allclose(discrete, continuous, rtol=0.0, atol=2e-5)
@@ -263,6 +264,23 @@ def test_discretised_moments_converge_at_first_order_in_the_step():
     gaps = [abs(discretised_stationary_moments(0.3, 0.0, dt=dt)[2] - continuous[2]) for dt in (0.05, 0.025)]
     assert gaps[1] > 1e-4                       # far above rounding
     assert gaps[0] / gaps[1] == pytest.approx(2.0, abs=0.1)
+
+
+@pytest.mark.parametrize("k1, k2", [(0.3, 0.0), (0.06, -0.10), (0.0, 0.3)])
+def test_the_step_bias_per_unit_step_survives_a_very_small_step(k1, k2):
+    # (m2 - m2 continuous) / dt tends to a constant as dt -> 0, about 0.07 in modulus here.
+    # From dt = 1e-4 to 1e-6 it moves by the second-order term of the bias, measured at
+    # 2e-6, plus the numerical error of the two solvers divided by dt, about 1e-13 / 1e-6
+    # = 1e-7. The tolerance 1e-4 is fifty times their sum. A threshold on the Fourier
+    # coefficients that does not scale with the rows drops the O(dt^2) entries carrying
+    # the bias and moves this ratio by 0.02 to 0.24.
+    continuous = stationary_moments(k1, k2)[2]
+    ratios = [
+        (discretised_stationary_moments(k1, k2, dt=dt)[2] - continuous) / dt
+        for dt in (1e-4, 1e-6)
+    ]
+    assert abs(ratios[0]) > 0.05
+    assert abs(ratios[1] - ratios[0]) < 1e-4
 
 
 def _modulus_and_se(z):
@@ -308,6 +326,13 @@ def test_step_bias_of_the_second_moment_at_the_bench_step(setting, expected_gap)
 def test_unconverged_discretised_truncation_raises_and_names_n_modes():
     with pytest.raises(ValueError, match="n_modes"):
         discretised_stationary_moments(0.0, 0.3, dt=1e-4, n_modes=8)
+
+
+def test_a_step_factor_beyond_the_largest_grid_raises_before_allocating():
+    # Carson bandwidth 2 * 200 * 10 * 100 = 400,000 modes: the first grid would be 2**21
+    # points, above the cap, and would take several GB if it were built.
+    with pytest.raises(ValueError, match="would need at least"):
+        discretised_stationary_moments(100.0, 0.0, dt=10.0)
 
 
 @pytest.mark.parametrize(

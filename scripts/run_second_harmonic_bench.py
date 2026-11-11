@@ -611,8 +611,8 @@ def write_timestep_check(
     :func:`qot_course.quantum_ot.biharmonic.discretised_stationary_moments` at
     the row's ``dt``, the value the simulated modulus converges to at that step,
     and ``abs_m1_gap_discrete_se``, ``abs_m2_gap_discrete_se`` the simulated
-    modulus minus that value, in the same standard errors. Where the modulus of the mean
-    is not well above ``se``, as for the first moment of the setting with
+    modulus minus that value, in the same standard errors. Where the modulus of
+    the mean is not well above ``se``, as for the first moment of the setting with
     ``k1 = 0``, the modulus is biased upward and its gap in standard errors is
     not meaningful. When the mean is exactly zero, ``se`` and the gap are
     undefined (empty cells).
@@ -750,8 +750,9 @@ def plan_comparisons(
     the stationary law of the scheme simulated at the model's ``dt``, and each
     records ``matched_on`` and ``matched_dt``; the residual of the equal-moduli
     pair is its residual on that law. A ``ValueError`` of
-    :func:`solve_k1_for_plv` in the equal-phase-locking comparisons is not caught: a missing matched comparison stops the run with
-    the solver's message. An equal-moduli pair that is not found within the
+    :func:`solve_k1_for_plv` in the equal-phase-locking comparisons is not
+    caught: a missing matched comparison stops the run with the solver's
+    message. An equal-moduli pair that is not found within the
     bound is kept in the plan with ``condition_b = None`` and a reason that
     gives the closest partner and its residual.
 
@@ -985,10 +986,10 @@ def write_summary(rows: Sequence[Mapping[str, Any]], out: Path) -> list[dict[str
     ``n_seeds_auc_defined`` and ``n_seeds_detection_defined`` count those at
     which the score, the area under the curve and the detection rate are
     defined. ``exact_a``, ``exact_b``, ``exact_discrete_a`` and
-    ``exact_discrete_b`` do not depend on the seed. ``mean_n_valid`` and ``mean_n_null`` are the means over the seeds
-    of ``n_valid`` and ``n_null``; ``mean_null_sd_a`` and ``mean_null_sd_b`` are
-    the means over the seeds of the finite values of ``null_sd_a`` and
-    ``null_sd_b``. Undefined everywhere gives an empty cell.
+    ``exact_discrete_b`` do not depend on the seed. ``mean_n_valid`` and
+    ``mean_n_null`` are the means over the seeds of ``n_valid`` and ``n_null``;
+    ``mean_null_sd_a`` and ``mean_null_sd_b`` are the means over the seeds of
+    the finite values of ``null_sd_a`` and ``null_sd_b``. Undefined everywhere gives an empty cell.
 
     Parameters
     ----------

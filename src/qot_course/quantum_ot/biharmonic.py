@@ -111,8 +111,9 @@ _SPECTRUM_MARGIN = 64
 _SPECTRUM_TAIL_FRACTION = 1.0 / 8.0
 # Largest grid size tried before discretised_stationary_moments gives up on
 # resolving the step factor. 2**20 points hold the spectrum of a factor whose
-# bandwidth is several hundred thousand modes, far beyond any setting where the
-# scheme is meaningful; the cap only prevents an unbounded loop (heuristic).
+# bandwidth is about 260,000 modes, far beyond any setting where the scheme is
+# meaningful; the cap prevents an unbounded loop and an unbounded first
+# allocation, both checked before the grid is built (heuristic).
 _MAX_SPECTRUM_GRID = 2**20
 
 
@@ -398,17 +399,18 @@ def _step_factor_band(
     *,
     dt: float,
     detuning: float,
+    noise_std: float,
     n_modes: int,
 ) -> tuple[NDArray[np.complex128], int]:
     """Fourier coefficients of exp(i k dt f(Delta)) - 1 for 0 <= k <= n_modes.
 
     Returns the coefficient array and the half-width of the band outside which
-    every coefficient, for any ``|k| <= n_modes``, is negligible. Row ``k`` of
-    the array holds the coefficients for that ``k``; column ``c`` is the
-    coefficient of ``exp(i j Delta)`` with ``j`` congruent to ``c`` modulo the
-    grid size. Row ``-k`` is the complex conjugate of row ``k`` with
-    ``j -> -j``, because the factor of ``-k`` is the conjugate of that of
-    ``k``, so only ``k >= 0`` is transformed. The
+    every coefficient, for any ``|k| <= n_modes``, is negligible against the
+    size of its equation. Row ``k`` of the array holds the coefficients for
+    that ``k``; column ``c`` is the coefficient of ``exp(i j Delta)`` with
+    ``j`` congruent to ``c`` modulo the grid size. Row ``-k`` is the complex
+    conjugate of row ``k`` with ``j -> -j``, because the factor of ``-k`` is
+    the conjugate of that of ``k``, so only ``k >= 0`` is transformed. The
     grid starts from the size derived in the Notes of
     :func:`discretised_stationary_moments` and doubles until the outer part of
     the folded spectrum is negligible.
@@ -419,8 +421,23 @@ def _step_factor_band(
     # k dt f(Delta) over the circle and over |k| <= n_modes, in modes.
     bandwidth = int(np.ceil(2.0 * n_modes * dt * (abs(k1) + 2.0 * abs(k2))))
     grid = 1 << int(np.ceil(np.log2(2 * (2 * bandwidth + _SPECTRUM_MARGIN))))
-    # A coefficient error below this bound, summed over the at most `size` terms
-    # of one equation of the moment system, stays below _CONVERGENCE_RATIO.
+    if grid > _MAX_SPECTRUM_GRID:
+        raise ValueError(
+            f"the step factor of the scheme would need at least {grid} points "
+            f"(Carson bandwidth {bandwidth} modes, cap {_MAX_SPECTRUM_GRID}) with "
+            f"dt={dt}, k1={k1}, k2={k2}; the step is far too large for this coupling"
+        )
+    # Equation k of the moment system has the entries e^{-q_k} b_j^{(k)} and the
+    # diagonal term expm1(-q_k), with q_k = k^2 sigma^2 dt. Its size is taken as
+    # |expm1(-q_k)| + e^{-q_k} max_j |b_j^{(k)}|, which is O(dt) at a small
+    # step. Every threshold below is relative to that size: the step bias lives
+    # in the O(dt^2) entries of each row, and an absolute threshold would drop
+    # them once dt is small enough. Row -k has the size of row k. Row 0 is
+    # identically zero (its phase vanishes) and is replaced by m_0 = 1 anyway.
+    damping = k_nonneg.astype(float) ** 2 * noise_std**2 * dt
+    # A coefficient error below this fraction of the size of its equation,
+    # summed over the at most `size` terms of the equation, stays below
+    # _CONVERGENCE_RATIO times that size.
     tail_limit = _CONVERGENCE_RATIO / size
     while True:
         x = 2.0 * np.pi * np.arange(grid) / grid
@@ -431,10 +448,20 @@ def _step_factor_band(
         # exponential would lose the digits that carry the drift.
         factor = -2.0 * np.sin(0.5 * phase) ** 2 + 1j * np.sin(phase)
         spectrum = np.fft.fft(factor, axis=1) / grid
+        magnitude = np.abs(spectrum)
+        row_size = np.abs(np.expm1(-damping)) + np.exp(-damping) * magnitude.max(
+            axis=1
+        )
+        relative = np.divide(
+            magnitude,
+            row_size[:, None],
+            out=np.zeros_like(magnitude),
+            where=row_size[:, None] > 0.0,
+        )
         folded = np.abs(np.fft.fftfreq(grid, d=1.0 / grid))
-        # Largest modulus at each folded index |j|, over k >= 0 and, through the
-        # mirror j -> -j, over k < 0.
-        largest = np.abs(spectrum).max(axis=0)
+        # Largest relative modulus at each folded index |j|, over k >= 0 and,
+        # through the mirror j -> -j, over k < 0.
+        largest = relative.max(axis=0)
         largest = np.maximum(largest, largest[(-np.arange(grid)) % grid])
         outer = folded >= (0.5 - _SPECTRUM_TAIL_FRACTION) * grid
         tail = float(largest[outer].max())
@@ -442,18 +469,20 @@ def _step_factor_band(
             break
         if 2 * grid > _MAX_SPECTRUM_GRID:
             raise ValueError(
-                f"the step factor of the scheme is not resolved on {grid} points (outer "
-                f"coefficients reach {tail:.2e}, limit {tail_limit:.1e}) with dt={dt}, "
-                f"k1={k1}, k2={k2}; the step is far too large for this coupling"
+                f"the step factor of the scheme is not resolved on {grid} points "
+                f"(outer coefficients reach {tail:.2e} of their equation, limit "
+                f"{tail_limit:.1e}) with dt={dt}, k1={k1}, k2={k2}; the step is "
+                "far too large for this coupling"
             )
         grid *= 2
     kept = folded[largest > tail_limit]
     # No equation couples moments more than 2 n_modes apart.
     half_width = min(int(kept.max()) if kept.size else 0, 2 * n_modes)
-    # Drop the negligible coefficients inside the band too. Besides matching the
-    # error bound, this keeps exact zeros exact: with K1 = 0 the odd coefficients
-    # vanish in theory, and their round-off would otherwise leave m1 at 1e-17.
-    spectrum[np.abs(spectrum) <= tail_limit] = 0.0
+    # Drop the negligible coefficients inside the band too, on the same
+    # relative threshold. Besides matching the error bound, this keeps exact
+    # zeros exact: with K1 = 0 the odd coefficients vanish in theory, and their
+    # round-off, about 1e-16 of the row, would otherwise leave m1 at 1e-17.
+    spectrum[relative <= tail_limit] = 0.0
     return spectrum, half_width
 
 
@@ -468,7 +497,7 @@ def discretised_stationary_moments(
     max_harmonic: int = 2,
     n_modes: int = 200,
 ) -> NDArray[np.complex128]:
-    """Exact long-run circular moments of the Euler--Maruyama scheme, without simulation.
+    """Exact long-run circular moments of the Euler--Maruyama scheme, unsimulated.
 
     :func:`simulate_biharmonic_dyad` advances both phases by one step of
     length :math:`\\delta t` with independent normal increments of variance
@@ -500,8 +529,9 @@ def discretised_stationary_moments(
     This is a linear system on the moments. It is truncated at
     :math:`|k| \\le` ``n_modes``, the equation :math:`k = 0` (which reads
     :math:`m_0 = m_0`) is replaced by :math:`m_0 = 1`, and the system is solved
-    densely. As :math:`\\delta t \\to 0` the system reduces to the stationary
-    Fokker--Planck equation solved by :func:`stationary_moments`.
+    as a banded system (see Notes). As :math:`\\delta t \\to 0` the system
+    reduces to the stationary Fokker--Planck equation solved by
+    :func:`stationary_moments`.
 
     Parameters
     ----------
@@ -564,19 +594,31 @@ def discretised_stationary_moments(
     The transform returns each coefficient plus its aliases
     :math:`a_{j \\pm M}, a_{j \\pm 2M}, \\dots`. The first grid is the smallest
     power of two with :math:`M \\ge 2\\,(2B + 64)` at :math:`|k| = N` =
-    ``n_modes``. It is then checked: every computed coefficient with folded
-    index above :math:`3M/8` must be below :math:`\\varepsilon = 10^{-10} /
-    (2N + 1)`, and the grid doubles until it is. Coefficients below
-    :math:`\\varepsilon` are then dropped (so that a coefficient that vanishes
-    in theory, such as every odd one when :math:`K_1 = 0`, is exactly zero),
-    which leaves a banded system of
-    half-width :math:`W < 3M/8`, solved with :func:`scipy.linalg.solve_banded`.
-    The aliases that reach a kept coefficient come from indices above
-    :math:`M - W > 5M/8`, past the checked region, where the coefficients are
-    smaller still. Each equation is a sum of at most :math:`2N + 1`
-    coefficients times moments of modulus at most one, so the dropped and
-    aliased parts change it by less than :math:`10^{-10}`. At the bench step
-    the band is a few tens of modes wide and one call takes about 2 ms.
+    ``n_modes``. Every threshold is relative to the size of the equation the
+    coefficient enters, :math:`r_k = |e^{-q_k} - 1| + e^{-q_k} \\max_j
+    |a^{(k)}_j - \\delta_{j0}|` with :math:`q_k = k^2 \\sigma^2 \\delta t`. This
+    matters at a small step: each equation is of order :math:`\\delta t`, the
+    step bias lives in its entries of order :math:`\\delta t^2`, and a fixed
+    threshold would drop those entries once :math:`\\delta t` is small enough.
+    The grid is then checked: every computed coefficient with folded index
+    above :math:`3M/8` must be below :math:`\\varepsilon\\, r_k`, with
+    :math:`\\varepsilon = 10^{-10} / (2N + 1)`, and the grid doubles until it
+    is. Coefficients below :math:`\\varepsilon\\, r_k` are then dropped (so that
+    a coefficient that vanishes in theory, such as every odd one when
+    :math:`K_1 = 0`, is exactly zero: its round-off is about :math:`10^{-16}
+    r_k`), which leaves a banded system of half-width :math:`W < 3M/8`, solved
+    with :func:`scipy.linalg.solve_banded`. The aliases that reach a kept
+    coefficient come from indices above :math:`M - W > 5M/8`, past the checked
+    region, where the coefficients are smaller still. Each equation is a sum
+    of at most :math:`2N + 1` coefficients times moments of modulus at most
+    one, so the dropped and aliased parts change it by less than
+    :math:`10^{-10} r_k`. This bounds the residual of each equation relative to
+    its own size, not the error of the moments, which also depends on the
+    conditioning of the system. That error was measured instead, against a
+    dense solve of the same system on 4096 points that drops nothing: it is
+    below :math:`10^{-13}` on the settings of the bench for every step from
+    :math:`10^{-6}` to :math:`0.5`. At the bench step the band is a few tens
+    of modes wide and one call takes about 2 ms.
 
     The truncation is checked as in :func:`stationary_moments`: if the two
     outermost moments on either side exceed ``1e-10`` (the modulus of
@@ -584,7 +626,7 @@ def discretised_stationary_moments(
     this check, and doubling it changes :math:`m_1` and :math:`m_2` by less than
     ``1e-10``, on the settings of the bench at :math:`\\delta t = 0.05`,
     including the slowly decaying trap setting :math:`(K_1, K_2) = (0, 0.3)`,
-    and at :math:`\\delta t = 10^{-4}`.
+    and at :math:`\\delta t = 10^{-4}` and :math:`10^{-6}`.
 
     The bench reads every statistic from these moments through
     :func:`long_run_joint_density`, which needs two properties of the
@@ -605,7 +647,8 @@ def discretised_stationary_moments(
     truncations are checked on every call. What is not: the existence and
     uniqueness of the stationary law of the chain is assumed here from the
     positive noise on a compact state space, not proved, and a singular
-    system would surface as an error of :func:`numpy.linalg.solve`. The
+    system would surface as a :class:`numpy.linalg.LinAlgError` raised by
+    :func:`scipy.linalg.solve_banded`. The
     derivation is elementary, so no source is cited.
 
     Examples
@@ -638,7 +681,12 @@ def discretised_stationary_moments(
     centre = n_modes  # index of the moment m_0
     ks = np.arange(-n_modes, n_modes + 1)
     spectrum, width = _step_factor_band(
-        k1, k2, dt=dt, detuning=omega_1 - omega_2, n_modes=n_modes
+        k1,
+        k2,
+        dt=dt,
+        detuning=omega_1 - omega_2,
+        noise_std=noise_std,
+        n_modes=n_modes,
     )
     grid = spectrum.shape[1]
     # Equation of row i (harmonic k = ks[i]):
@@ -678,8 +726,9 @@ def discretised_stationary_moments(
     edge = float(np.abs(moments[[0, 1, -2, -1]]).max())
     if edge > _CONVERGENCE_RATIO:
         raise ValueError(
-            f"moment truncation has not converged with n_modes={n_modes}: the outermost "
-            f"moments reach {edge:.2e} (limit {_CONVERGENCE_RATIO:.0e}); increase n_modes"
+            f"moment truncation has not converged with n_modes={n_modes}: the "
+            f"outermost moments reach {edge:.2e} (limit {_CONVERGENCE_RATIO:.0e}); "
+            "increase n_modes"
         )
     k = np.arange(max_harmonic + 1)
     return moments[centre + k].astype(np.complex128)
@@ -947,8 +996,9 @@ def solve_k1_for_plv(
     law is the stationary law of the continuous-time model
     (:func:`stationary_moments`); with a step ``dt`` it is the stationary law
     of the Euler--Maruyama scheme simulated at that step
-    (:func:`discretised_stationary_moments`). The function :math:`|m_1| - \\text{target}` is evaluated on 301
-    evenly spaced values of :math:`K_1` in ``[0, k1_search_max]`` (a step of
+    (:func:`discretised_stationary_moments`). The function
+    :math:`|m_1| - \\text{target}` is evaluated on 301 evenly spaced values of
+    :math:`K_1` in ``[0, k1_search_max]`` (a step of
     0.01 rad/s on the default interval), and the first sign change is refined
     with Brent's method.
 
@@ -1111,17 +1161,17 @@ def solve_equal_moduli_pair(
     -------
     pair : EqualModuliPair
         The reference, the best partner found, its residual (on the matched
-        law) and whether the residual is within ``tolerance`` with a partner :math:`K_2` strictly of
-        the opposite sign. A request out of reach is returned with
-        ``found=False``, not raised, and a warning is logged.
+        law) and whether the residual is within ``tolerance`` with a partner
+        :math:`K_2` strictly of the opposite sign. A request out of reach is
+        returned with ``found=False``, not raised, and a warning is logged.
 
     Raises
     ------
     ValueError
         If a keyword of ``model`` is not one of the four listed above (the
         message names it), if ``dt`` is given but not finite and positive, if
-        ``k2_ref`` is zero (the opposite sign is then undefined), or if ``k2_bound``, ``tolerance`` or ``k1_search_max`` is
-        not positive.
+        ``k2_ref`` is zero (the opposite sign is then undefined), or if
+        ``k2_bound``, ``tolerance`` or ``k1_search_max`` is not positive.
 
     Notes
     -----

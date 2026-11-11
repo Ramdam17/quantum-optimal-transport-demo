@@ -11,18 +11,29 @@ def _rows(path):
         return list(csv.DictReader(fh))
 
 
-def test_quick_run_writes_every_result_file(tmp_path):
-    assert main(["--quick", "--out", str(tmp_path)]) == 0
+@pytest.fixture(scope="module")
+def quick_run(tmp_path_factory):
+    """Output directory of one quick run with the default configuration.
+
+    The quick run takes several seconds, so the tests that only read its output
+    share it; a test that changes the configuration makes its own run.
+    """
+    out = tmp_path_factory.mktemp("quick_run")
+    assert main(["--quick", "--out", str(out)]) == 0
+    return out
+
+
+def test_quick_run_writes_every_result_file(quick_run):
     for name in ("map.csv", "freedom.csv", "continuity.json", "timestep_check.csv", "comparisons.csv",
                  "summary.csv", "reliability.csv", "run_metadata.json"):
-        assert (tmp_path / name).stat().st_size > 0, name
-    assert len(_rows(tmp_path / "map.csv")) == 4 * 5
-    comp = _rows(tmp_path / "comparisons.csv")
+        assert (quick_run / name).stat().st_size > 0, name
+    assert len(_rows(quick_run / "map.csv")) == 4 * 5
+    comp = _rows(quick_run / "comparisons.csv")
     assert {r["experiment"] for r in comp} == {"detection", "equal_plv", "equal_moduli", "trap"}
     assert {r["statistic"] for r in comp} >= {"plv", "plv2", "qmi_rich", "bures_rich", "qmi_weighted_02", "qmi_weighted_05"}
-    meta = json.loads((tmp_path / "run_metadata.json").read_text())
+    meta = json.loads((quick_run / "run_metadata.json").read_text())
     assert meta["config"]["protocol"]["n_records"] == 6 and meta["comparisons_not_made"] == []
-    cont = json.loads((tmp_path / "continuity.json").read_text())
+    cont = json.loads((quick_run / "continuity.json").read_text())
     assert cont["spearman_abs_m1_abs_m2"] == 1.0
     assert cont["ranks_identical_abs_m1_abs_m2"] is True
     assert cont["ranks_identical_abs_m1_qmi_rich"] is True
@@ -81,17 +92,15 @@ def test_a_missing_git_binary_records_the_commit_as_unknown(monkeypatch):
     assert bench._git_commit() == {"commit": None, "dirty": None}
 
 
-def test_reliability_has_no_trap_row_while_comparisons_and_summary_keep_it(tmp_path):
-    assert main(["--quick", "--out", str(tmp_path)]) == 0
-    assert "trap" not in {r["experiment"] for r in _rows(tmp_path / "reliability.csv")}
-    assert "trap" in {r["experiment"] for r in _rows(tmp_path / "comparisons.csv")}
-    assert "trap" in {r["experiment"] for r in _rows(tmp_path / "summary.csv")}
+def test_reliability_has_no_trap_row_while_comparisons_and_summary_keep_it(quick_run):
+    assert "trap" not in {r["experiment"] for r in _rows(quick_run / "reliability.csv")}
+    assert "trap" in {r["experiment"] for r in _rows(quick_run / "comparisons.csv")}
+    assert "trap" in {r["experiment"] for r in _rows(quick_run / "summary.csv")}
 
 
-def test_reliability_reports_the_record_counts_at_the_shortest_duration(tmp_path):
-    assert main(["--quick", "--out", str(tmp_path)]) == 0
-    summary = _rows(tmp_path / "summary.csv")
-    reliability = _rows(tmp_path / "reliability.csv")
+def test_reliability_reports_the_record_counts_at_the_shortest_duration(quick_run):
+    summary = _rows(quick_run / "summary.csv")
+    reliability = _rows(quick_run / "reliability.csv")
     assert reliability[0].keys() >= {"mean_n_valid", "mean_n_null"}
     reported = 0
     for row in reliability:
@@ -110,10 +119,9 @@ def test_reliability_reports_the_record_counts_at_the_shortest_duration(tmp_path
     assert reported > 0
 
 
-def test_summary_averages_the_null_standard_deviations_over_seeds(tmp_path):
-    assert main(["--quick", "--out", str(tmp_path)]) == 0
-    summary = _rows(tmp_path / "summary.csv")
-    comparisons = _rows(tmp_path / "comparisons.csv")
+def test_summary_averages_the_null_standard_deviations_over_seeds(quick_run):
+    summary = _rows(quick_run / "summary.csv")
+    comparisons = _rows(quick_run / "comparisons.csv")
     assert list(summary[0])[-2:] == ["mean_null_sd_a", "mean_null_sd_b"]
     row = next(r for r in summary if r["mean_null_sd_a"] != "")
     group = [
@@ -136,23 +144,21 @@ def _after(header, name, count):
     return header[i + 1 : i + 1 + count]
 
 
-def test_comparisons_and_summary_carry_the_exact_values_of_the_scheme(tmp_path):
-    assert main(["--quick", "--out", str(tmp_path)]) == 0
+def test_comparisons_and_summary_carry_the_exact_values_of_the_scheme(quick_run):
     for name in ("comparisons.csv", "summary.csv"):
-        with (tmp_path / name).open() as fh:
+        with (quick_run / name).open() as fh:
             header = next(csv.reader(fh))
         assert _after(header, "exact_b", 2) == ["exact_discrete_a", "exact_discrete_b"], name
-    summary = _rows(tmp_path / "summary.csv")
+    summary = _rows(quick_run / "summary.csv")
     trap = next(r for r in summary if r["experiment"] == "trap" and r["statistic"] == "plv2")
     assert float(trap["exact_discrete_b"]) == pytest.approx(0.796789, abs=1e-6)   # 0.8018 in continuous time
     assert float(trap["exact_b"]) - float(trap["exact_discrete_b"]) > 4e-3
 
 
-def test_matched_pairs_are_solved_on_the_simulated_scheme(tmp_path):
+def test_matched_pairs_are_solved_on_the_simulated_scheme(quick_run):
     from qot_course.quantum_ot.biharmonic import discretised_stationary_moments
 
-    assert main(["--quick", "--out", str(tmp_path)]) == 0
-    meta = json.loads((tmp_path / "run_metadata.json").read_text())
+    meta = json.loads((quick_run / "run_metadata.json").read_text())
     dt = meta["config"]["model"]["dt"]
     solved = {s["experiment"]: s for s in reversed(meta["solved_settings"])}
     for entry in meta["solved_settings"]:
@@ -171,18 +177,17 @@ def test_matched_pairs_are_solved_on_the_simulated_scheme(tmp_path):
     assert pair["residual"] == pytest.approx(residual, abs=1e-12)
 
 
-def test_timestep_check_reports_the_gap_to_the_scheme(tmp_path):
+def test_timestep_check_reports_the_gap_to_the_scheme(quick_run):
     from qot_course.quantum_ot.biharmonic import discretised_stationary_moments
 
-    assert main(["--quick", "--out", str(tmp_path)]) == 0
-    with (tmp_path / "timestep_check.csv").open() as fh:
+    with (quick_run / "timestep_check.csv").open() as fh:
         header = next(csv.reader(fh))
     assert header == [
         "k1", "k2", "dt", "n_records",
         "abs_m1_exact", "abs_m1_sim", "abs_m1_se", "abs_m1_gap_se", "abs_m1_exact_discrete", "abs_m1_gap_discrete_se",
         "abs_m2_exact", "abs_m2_sim", "abs_m2_se", "abs_m2_gap_se", "abs_m2_exact_discrete", "abs_m2_gap_discrete_se",
     ]
-    for row in _rows(tmp_path / "timestep_check.csv"):
+    for row in _rows(quick_run / "timestep_check.csv"):
         m = discretised_stationary_moments(float(row["k1"]), float(row["k2"]), dt=float(row["dt"]))
         for h in (1, 2):
             assert float(row[f"abs_m{h}_exact_discrete"]) == pytest.approx(abs(m[h]), abs=1e-12)
