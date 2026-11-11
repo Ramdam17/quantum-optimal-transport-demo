@@ -20,9 +20,12 @@ whole protocol and writes eight files to the output directory, in this order:
 ``comparisons.csv``
     One row per comparison, record duration, master seed and statistic.
 ``summary.csv``
-    The comparisons summarised over master seeds.
+    The comparisons summarised over master seeds, including the mean numbers of
+    valid records and of null differences and the mean null standard deviations.
 ``reliability.csv``
-    The shortest duration whose mean detection rate reaches the threshold.
+    The shortest duration whose mean detection rate reaches the threshold, with
+    the mean numbers of valid records and of null differences at that duration.
+    The experiment ``trap`` has no row.
 ``run_metadata.json``
     The resolved configuration, the software versions, the solved settings and
     the comparisons that were not made, with the reason for each.
@@ -46,7 +49,7 @@ to experiment ``e`` in the fixed order detection (0), equal phase-locking value
 ``i`` of the experiment (entry ``i`` of ``detection.k2_values`` or of
 ``equal_plv``, entry 0 for the other two); and child ``d`` of that one goes to
 duration ``d`` of ``protocol.durations_s``. The script builds that child
-directly as ``SeedSequence(s, spawn_key=(e, i, d))``, which is the same object
+directly as ``SeedSequence(s, spawn_key=(e, i, d))``, which has the same state
 as the spawned one. Adding an entry at the end of any experiment's list, or a
 duration at the end of ``durations_s``, therefore leaves every earlier number
 unchanged, and a comparison that is not made frees its slot without moving any
@@ -920,7 +923,10 @@ def write_summary(rows: Sequence[Mapping[str, Any]], out: Path) -> list[dict[str
     ``n_seeds_auc_defined`` and ``n_seeds_detection_defined`` count those at
     which the score, the area under the curve and the detection rate are
     defined. ``exact_a`` and ``exact_b`` do not depend on
-    the seed. Undefined everywhere gives an empty cell.
+    the seed. ``mean_n_valid`` and ``mean_n_null`` are the means over the seeds
+    of ``n_valid`` and ``n_null``; ``mean_null_sd_a`` and ``mean_null_sd_b`` are
+    the means over the seeds of the finite values of ``null_sd_a`` and
+    ``null_sd_b``. Undefined everywhere gives an empty cell.
 
     Parameters
     ----------
@@ -967,6 +973,8 @@ def write_summary(rows: Sequence[Mapping[str, Any]], out: Path) -> list[dict[str
             out_row["exact_b"] = group[0]["exact_b"]
             out_row["mean_n_valid"] = float(np.mean([r["n_valid"] for r in group]))
             out_row["mean_n_null"] = float(np.mean([r["n_null"] for r in group]))
+            out_row["mean_null_sd_a"] = _finite_summary([r["null_sd_a"] for r in group])[0]
+            out_row["mean_null_sd_b"] = _finite_summary([r["null_sd_b"] for r in group])[0]
             summary.append(out_row)
         fieldnames = list(summary[0]) if summary else ["experiment"]
         _write_csv(path, fieldnames, summary)
@@ -981,7 +989,15 @@ def write_reliability(
     The shortest reliable duration is the shortest configured duration whose
     mean detection rate over seeds reaches ``protocol.reliability_threshold``.
     The threshold is the usual power convention, not a derived quantity; the
-    column ``threshold_is_a_convention`` says so in the file itself.
+    column ``threshold_is_a_convention`` says so in the file itself. The columns
+    ``mean_n_valid`` and ``mean_n_null`` give the values of ``summary.csv`` at
+    the reported duration, because a relative-phase row can be reported as
+    reliable while resting on one or two records; they are empty when no
+    duration is reported.
+
+    The experiment ``trap`` has no row. It is reported as a documented limit of
+    the bench, outside any comparison, because its records do not explore the
+    long-run law, so a shortest reliable duration has no meaning there.
 
     Parameters
     ----------
@@ -1002,6 +1018,8 @@ def write_reliability(
         threshold = float(section["protocol"]["reliability_threshold"])
         groups: dict[tuple[Any, ...], list[Mapping[str, Any]]] = {}
         for row in summary:
+            if row["experiment"] == "trap":
+                continue
             key = (row["experiment"], row["label"], row["statistic"])
             groups.setdefault(key, []).append(row)
         rows = []
@@ -1012,14 +1030,18 @@ def write_reliability(
                 if not _is_undefined(r["detection_rate_mean"])
                 and r["detection_rate_mean"] >= threshold
             ]
+            shortest = min(reliable) if reliable else None
+            at_shortest = next((r for r in group if r["duration_s"] == shortest), None)
             rows.append(
                 {
                     "experiment": experiment,
                     "label": label,
                     "statistic": statistic,
-                    "shortest_reliable_duration_s": min(reliable) if reliable else None,
+                    "shortest_reliable_duration_s": shortest,
                     "reliability_threshold": threshold,
                     "threshold_is_a_convention": True,
+                    "mean_n_valid": at_shortest["mean_n_valid"] if at_shortest else None,
+                    "mean_n_null": at_shortest["mean_n_null"] if at_shortest else None,
                 }
             )
         fieldnames = (
@@ -1029,6 +1051,8 @@ def write_reliability(
             "shortest_reliable_duration_s",
             "reliability_threshold",
             "threshold_is_a_convention",
+            "mean_n_valid",
+            "mean_n_null",
         )
         _write_csv(path, fieldnames, rows)
     return rows
@@ -1186,8 +1210,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     -----
     When to use: to produce the result files of the bench; ``--quick`` runs a
     reduced grid and protocol, measured at about 1 s inside this function (under
-    2 s for the whole command) on 2026-11-11, and is what the smoke test calls. The model is the two-harmonic phase interaction of Haken, Kelso and
-    Bunz (1985), DOI: 10.1007/BF00336922, and the exact moments come from the
+    2 s for the whole command) on 2026-11-11, and is what the smoke test calls.
+    The model is the two-harmonic phase interaction of Haken, Kelso and Bunz
+    (1985), DOI: 10.1007/BF00336922, and the exact moments come from the
     stationary Fokker--Planck solution of Risken (1996),
     DOI: 10.1007/978-3-642-61544-3. Seeds and undefined numbers follow the
     rules of the module docstring.

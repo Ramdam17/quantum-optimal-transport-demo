@@ -43,6 +43,16 @@ def test_record_statistics_keys_and_agreement_with_the_exact_values():
         assert rec[key] == pytest.approx(exact[key], abs=0.03), key
 
 
+def test_record_statistics_on_a_record_below_the_first_moment_threshold():
+    ta = np.linspace(0, 20 * np.pi, 1000)
+    # In phase and in antiphase alternate, so that m1 = 0 and m2 = 1.
+    tb = ta - np.where(np.arange(1000) % 2 == 0, 0.0, np.pi)
+    rec = record_statistics(ta, tb, weight_sets=WEIGHTS)
+    assert np.isnan(rec["relphase_sin"]) and np.isnan(rec["relphase_cos"])
+    assert all(np.isfinite(v) for k, v in rec.items() if not k.startswith("relphase"))
+    assert rec["plv"] == pytest.approx(0.0, abs=1e-12) and rec["plv2"] == pytest.approx(1.0)
+
+
 def test_uncoupled_exact_statistics_are_zero_and_relative_phase_undefined():
     exact = long_run_statistics(stationary_moments(0.0, 0.0), weight_sets=WEIGHTS)
     for key in ("plv", "plv2", "qmi_naive", "qmi_rich", "bures_rich", *WEIGHTS):

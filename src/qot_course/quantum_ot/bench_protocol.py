@@ -4,7 +4,8 @@ Every comparison of the bench reads the same list of statistics from a pair of
 phase records: the classical phase-locking values of the first and second
 harmonics of the phase difference, the two components of the relative phase
 of the first two circular moments, and quantum mutual information and Bures
-distance of joint densities built from three kinds of phase embedding. This
+distance between the joint density and the product of its marginals, for joint
+densities built from three kinds of phase embedding. This
 module computes that list on one simulated record
 (:func:`record_statistics`) and, from the exact stationary circular moments of
 :mod:`qot_course.quantum_ot.biharmonic`, the long-run value of the same list
@@ -23,7 +24,7 @@ setting (:func:`signed_score`), the area under the curve of the raw values
 
 References
 ----------
-G. Gatto, S. R. Jammalamadaka, "The generalized von Mises distribution",
+R. Gatto, S. R. Jammalamadaka, "The generalized von Mises distribution",
 *Stat. Methodol.* **4**, 341 (2007). DOI: 10.1016/j.stamet.2006.11.003.
 
 J. A. Hanley, B. J. McNeil, "The meaning and use of the area under a receiver
@@ -164,8 +165,8 @@ def relative_phase_components(
         First and second circular moments of the phase difference, sample or
         exact, with :math:`m_k = E[e^{ik\\Delta}]`. Dimensionless.
     min_first_moment : float, default 0.05
-        Below this value of :math:`|m_1|` the direction :math:`\\mu_1` is not
-        defined and both components are returned as NaN. The value is a
+        Below this value of :math:`|m_1|` the direction :math:`\\mu_1` is
+        treated as undefined and both components are returned as NaN. The value is a
         heuristic, not derived from a test. It does not remove the sampling
         scatter of an uncoupled dyad: on 200 uncoupled records of the default
         dyad (seed 11), the sample :math:`|m_1|` fell below 0.05 in 11 % of the
@@ -249,7 +250,8 @@ def record_statistics(
         ``qmi_naive`` the quantum mutual information (nats) of
         :func:`qot_course.quantum_ot.capstone.joint_density_matrix`; ``qmi_rich``
         and ``bures_rich`` the quantum mutual information (nats) and Bures
-        distance of the equal-weight qutrit embedding with harmonics ``(1, 2)``;
+        distance between the joint density and the product of its marginals,
+        both of the equal-weight qutrit embedding with harmonics ``(1, 2)``;
         each weighted key the quantum mutual information (nats) of its weighted
         qutrit embedding.
 
@@ -344,12 +346,17 @@ def long_run_statistics(
     -----
     When to use: to put the value a statistic tends to on long records beside
     its distribution over finite records, which separates sampling scatter from
-    a genuine difference between two settings. The values are long-run limits:
-    they hold under the assumptions of
-    :func:`qot_course.quantum_ot.biharmonic.long_run_joint_density`, and a
-    finite record also carries a sampling bias, positive for every modulus and
-    every information measure. Moments are as in Gatto & Jammalamadaka (2007),
-    DOI: 10.1016/j.stamet.2006.11.003.
+    a genuine difference between two settings. The values are long-run limits
+    of the continuous-time model: they hold under the assumptions of
+    :func:`qot_course.quantum_ot.biharmonic.long_run_joint_density`. A
+    simulated record departs from them in two ways. A finite record carries a
+    sampling bias, which is positive for the two moduli, because the modulus of
+    an average is on average larger than the modulus of its expectation; its
+    sign for the information measures and for the Bures distance is not
+    established here and is read from the results. The Euler--Maruyama step of
+    the simulator also shifts the stationary moments themselves, by an amount
+    that the time-step check of the bench measures. Moments are as in Gatto &
+    Jammalamadaka (2007), DOI: 10.1016/j.stamet.2006.11.003.
 
     Examples
     --------
@@ -682,7 +689,8 @@ def compare_conditions(
         the keys ``statistic`` (name), ``mean_a``, ``mean_b``, ``sd_a``,
         ``sd_b`` (mean and standard deviation, ``ddof=1``, over the finite
         values of sets A and B), ``exact_a``, ``exact_b`` (long-run values of
-        :func:`long_run_statistics`), ``score`` (:func:`signed_score` of B - A
+        :func:`long_run_statistics`, computed for the continuous-time model,
+        while the records are simulated with the step ``dt``), ``score`` (:func:`signed_score` of B - A
         against A' - A''), ``auc`` (:func:`auc` of the raw values of A and B),
         ``detection_rate`` (:func:`detection_rate` of B - A against
         A' - A''), ``null_sd_a`` and ``null_sd_b`` (standard deviations of the
@@ -691,9 +699,13 @@ def compare_conditions(
         records at which both A' and A'' are finite, that is, the number of
         null differences that ``score`` and ``detection_rate`` rest on).
         For the relative-phase keys ``n_null`` can be much smaller than
-        ``n_records``, because a null difference needs both uncoupled records
-        to pass the threshold on :math:`|m_1|`. Summaries computed on fewer
-        than two finite values are NaN.
+        ``n_records``, because a null difference needs both records of the
+        reference setting, one from A' and one from A'', to pass the threshold
+        on :math:`|m_1|`, which few do when that setting is uncoupled.
+        ``mean_a``, ``sd_a``, ``mean_b``, ``sd_b`` and ``auc`` use every finite
+        value of a set, so they can rest on more records than ``n_valid``.
+        Summaries computed on fewer than two finite values are NaN, except
+        ``auc``, which needs one finite value on each side.
 
     Raises
     ------

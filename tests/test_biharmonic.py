@@ -115,7 +115,7 @@ def test_agrees_with_a_long_simulation():
     assert abs(per_record.mean() - m[1]) < 5 * se + 0.01
 
 
-def test_relative_phase_sign_follows_k2():
+def test_relative_phase_at_opposite_second_harmonics():
     assert relative_phase(stationary_moments(0.10, 0.05)) == pytest.approx(0.363, abs=5e-3)
     assert relative_phase(stationary_moments(0.10, -0.05)) == pytest.approx(-0.329, abs=5e-3)
     assert np.isnan(relative_phase(stationary_moments(0.0, 0.1)))

@@ -1,6 +1,8 @@
 import csv
 import json
 
+import pytest
+
 from scripts.run_second_harmonic_bench import main
 
 
@@ -77,3 +79,53 @@ def test_a_missing_git_binary_records_the_commit_as_unknown(monkeypatch):
 
     monkeypatch.setattr(bench.subprocess, "run", _no_git)
     assert bench._git_commit() == {"commit": None, "dirty": None}
+
+
+def test_reliability_has_no_trap_row_while_comparisons_and_summary_keep_it(tmp_path):
+    assert main(["--quick", "--out", str(tmp_path)]) == 0
+    assert "trap" not in {r["experiment"] for r in _rows(tmp_path / "reliability.csv")}
+    assert "trap" in {r["experiment"] for r in _rows(tmp_path / "comparisons.csv")}
+    assert "trap" in {r["experiment"] for r in _rows(tmp_path / "summary.csv")}
+
+
+def test_reliability_reports_the_record_counts_at_the_shortest_duration(tmp_path):
+    assert main(["--quick", "--out", str(tmp_path)]) == 0
+    summary = _rows(tmp_path / "summary.csv")
+    reliability = _rows(tmp_path / "reliability.csv")
+    assert reliability[0].keys() >= {"mean_n_valid", "mean_n_null"}
+    reported = 0
+    for row in reliability:
+        if row["shortest_reliable_duration_s"] == "":
+            assert row["mean_n_valid"] == "" and row["mean_n_null"] == ""
+            continue
+        reported += 1
+        match = [
+            s for s in summary
+            if (s["experiment"], s["label"], s["statistic"]) == (row["experiment"], row["label"], row["statistic"])
+            and float(s["duration_s"]) == float(row["shortest_reliable_duration_s"])
+        ]
+        assert len(match) == 1
+        assert row["mean_n_valid"] == match[0]["mean_n_valid"]
+        assert row["mean_n_null"] == match[0]["mean_n_null"]
+    assert reported > 0
+
+
+def test_summary_averages_the_null_standard_deviations_over_seeds(tmp_path):
+    assert main(["--quick", "--out", str(tmp_path)]) == 0
+    summary = _rows(tmp_path / "summary.csv")
+    comparisons = _rows(tmp_path / "comparisons.csv")
+    assert list(summary[0])[-2:] == ["mean_null_sd_a", "mean_null_sd_b"]
+    row = next(r for r in summary if r["mean_null_sd_a"] != "")
+    group = [
+        c for c in comparisons
+        if (c["experiment"], c["label"], c["duration_s"], c["statistic"])
+        == (row["experiment"], row["label"], row["duration_s"], row["statistic"])
+    ]
+    for side in ("a", "b"):
+        values = [float(c[f"null_sd_{side}"]) for c in group if c[f"null_sd_{side}"] != ""]
+        expected = sum(values) / len(values) if values else None
+        cell = row[f"mean_null_sd_{side}"]
+        if expected is None:
+            assert cell == ""
+        else:
+            assert float(cell) == pytest.approx(expected)

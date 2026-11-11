@@ -507,7 +507,12 @@ def long_run_joint_density(
     when the coupling is antisymmetric, the two noises are independent with
     equal amplitude, and the record is long enough for the sum of the phases to
     have spread over many turns; on a finite record the vanishing elements are
-    only small, not zero. Moments are as in Gatto & Jammalamadaka (2007),
+    only small, not zero. The surviving elements match those of a record only
+    once the phase difference has explored its stationary law within that
+    record. A strong second harmonic prevents this on records of realistic
+    length: near :math:`K_2 = 0.3` the difference stays in one of its two wells
+    for a long time, and a record then carries a first moment far from the
+    stationary one. Moments are as in Gatto & Jammalamadaka (2007),
     DOI: 10.1016/j.stamet.2006.11.003; the diffusion of the sum follows from
     the Fokker--Planck description of Risken (1996),
     DOI: 10.1007/978-3-642-61544-3.
