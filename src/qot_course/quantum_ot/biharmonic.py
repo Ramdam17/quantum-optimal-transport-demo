@@ -47,12 +47,27 @@ from __future__ import annotations
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy.linalg import solve_banded
 
 # Number of noise components per step: one per oscillator.
 _N_OSCILLATORS = 2
 # A record needs at least two samples to define a phase difference trajectory
 # and an increment (structural, not a tuning choice).
 _MIN_SAMPLES = 2
+# The second harmonic couples Fourier modes n and n +/- 2, so the stationary
+# Fokker-Planck matrix has two bands on each side of the diagonal (derived).
+_BAND_HALF_WIDTH = 2
+# A truncation at |n| <= n_modes is accepted when the outermost two coefficients
+# on each side are below this fraction of c_0. The two outermost rows are the ones
+# that lose couplings to the dropped modes, so a negligible tail there means the
+# dropped modes carry negligible weight. The value 1e-10 is a heuristic chosen
+# well below every tolerance the bench uses on a moment (1e-8 and above).
+_CONVERGENCE_RATIO = 1e-10
+# Below this modulus a sample or exact moment is treated as zero, and its phase,
+# hence the relative phase, is undefined. Heuristic: far above double-precision
+# round-off on moments of order one (about 1e-16), far below any moment the bench
+# reads as nonzero.
+_MIN_MODULUS = 1e-12
 
 
 def simulate_biharmonic_dyad(
@@ -172,3 +187,199 @@ def simulate_biharmonic_dyad(
             ]
         )
     return theta_1, theta_2
+
+
+def stationary_moments(
+    k1: float,
+    k2: float,
+    *,
+    omega_1: float = 1.0,
+    omega_2: float = 1.2,
+    noise_std: float = 0.3,
+    max_harmonic: int = 2,
+    n_modes: int = 200,
+) -> NDArray[np.complex128]:
+    """Exact long-run circular moments of the phase difference, without simulation.
+
+    Because the coupling is antisymmetric, the phase difference
+    :math:`\\Delta = \\theta_1 - \\theta_2` obeys a closed stochastic equation,
+
+    .. math::
+
+        \\mathrm{d}\\Delta = [\\Delta\\omega - 2K_1 \\sin\\Delta - 2K_2 \\sin 2\\Delta]
+        \\,\\mathrm{d}t + \\sqrt{2D}\\,\\mathrm{d}W,
+        \\qquad \\Delta\\omega = \\omega_1 - \\omega_2, \\quad D = \\sigma^2,
+
+    where the diffusion constant is :math:`D = \\sigma^2` because the two
+    independent noises add in the difference. Its stationary density
+    :math:`p(\\Delta) = \\sum_n c_n e^{i n \\Delta}` solves the stationary
+    Fokker--Planck equation on the circle (Risken 1996, chapter 11). On the
+    Fourier coefficients this equation is a banded linear system: for every
+    :math:`n \\neq 0`,
+
+    .. math::
+
+        (\\Delta\\omega - i D n)\\, c_n + i K_1 (c_{n-1} - c_{n+1})
+        + i K_2 (c_{n-2} - c_{n+2}) = 0,
+
+    and normalisation fixes :math:`c_0 = 1/(2\\pi)`. The system is truncated at
+    :math:`|n| \\le` ``n_modes``, the row :math:`n = 0` is replaced by the
+    normalisation, and the moments are :math:`m_k = E[e^{i k \\Delta}] = 2\\pi c_{-k}`.
+
+    Parameters
+    ----------
+    k1 : float
+        First-harmonic coupling :math:`K_1` (rad/s).
+    k2 : float
+        Second-harmonic coupling :math:`K_2` (rad/s); the sign is meaningful.
+    omega_1, omega_2 : float, default 1.0 and 1.2
+        Natural frequencies (rad/s), as in notebook 04/11.
+    noise_std : float, default 0.3
+        Noise amplitude :math:`\\sigma` of each oscillator (rad / sqrt(s)).
+    max_harmonic : int, default 2
+        Highest harmonic :math:`k` returned.
+    n_modes : int, default 200
+        Truncation order of the Fourier series of the density.
+
+    Returns
+    -------
+    moments : ndarray of complex, shape (max_harmonic + 1,)
+        Entry ``k`` is :math:`E[e^{i k \\Delta}]` with
+        :math:`\\Delta = \\theta_1 - \\theta_2`; entry 0 equals 1. Dimensionless.
+
+    Raises
+    ------
+    ValueError
+        If ``noise_std`` is not positive, if ``max_harmonic`` is negative, if
+        ``n_modes`` is too small to hold the band and the requested harmonics,
+        or if the truncation has not converged (the message then names
+        ``n_modes`` and asks for a larger value).
+
+    Notes
+    -----
+    When to use: as the exact target of every simulated circular moment of the
+    two-harmonic dyad, and to choose settings :math:`(K_1, K_2)` from their
+    long-run moments without simulating. With equal natural frequencies the
+    density is the generalized von Mises law, proportional to
+    :math:`\\exp[(2K_1\\cos\\Delta + K_2\\cos 2\\Delta)/\\sigma^2]`
+    (Gatto & Jammalamadaka 2007), which gives an independent check by
+    quadrature; with :math:`K_2 = 0` as well, :math:`m_1 = I_1(\\kappa)/I_0(\\kappa)`
+    with :math:`\\kappa = 2K_1/\\sigma^2`.
+
+    The truncation is checked rather than trusted: if the two outermost
+    coefficients on either side exceed ``1e-10`` times :math:`|c_0|`, a strong
+    coupling has pushed weight into the dropped modes and the function raises
+    instead of returning a wrong moment.
+
+    References
+    ----------
+    H. Risken, *The Fokker-Planck Equation*, 2nd ed., Springer (1996), chapter 11.
+    DOI: 10.1007/978-3-642-61544-3.
+
+    R. Gatto, S. R. Jammalamadaka, "The generalized von Mises distribution",
+    *Stat. Methodol.* **4**, 341 (2007). DOI: 10.1016/j.stamet.2006.11.003.
+
+    Examples
+    --------
+    >>> m = stationary_moments(0.3, 0.0)
+    >>> m.shape
+    (3,)
+    >>> round(float(abs(m[1])), 2)
+    0.91
+    """
+    if noise_std <= 0.0:
+        raise ValueError(f"noise_std must be positive, got {noise_std}")
+    if max_harmonic < 0:
+        raise ValueError(f"max_harmonic must be non-negative, got {max_harmonic}")
+    # The convergence check reads the two outermost modes on each side, which
+    # must lie beyond both the band and the returned harmonics.
+    min_modes = max(_BAND_HALF_WIDTH, max_harmonic + 2)
+    if n_modes < min_modes:
+        raise ValueError(
+            f"n_modes must be at least {min_modes} for max_harmonic={max_harmonic}, "
+            f"got {n_modes}"
+        )
+
+    detuning = omega_1 - omega_2
+    diffusion = noise_std**2
+    size = 2 * n_modes + 1
+    centre = n_modes  # index of mode n = 0
+    n = np.arange(-n_modes, n_modes + 1)
+
+    # Banded storage for scipy.linalg.solve_banded: ab[u + i - j, j] = A[i, j]
+    # with u = l = 2. Row i is the equation of mode n_i; column j is c_{n_j}.
+    u = _BAND_HALF_WIDTH
+    ab = np.zeros((2 * u + 1, size), dtype=np.complex128)
+    ab[u] = detuning - 1j * diffusion * n  # A[i, i]
+    ab[u - 1, 1:] = -1j * k1  # A[i, i + 1]: -i K1 c_{n+1}
+    ab[u + 1, :-1] = 1j * k1  # A[i, i - 1]: +i K1 c_{n-1}
+    ab[u - 2, 2:] = -1j * k2  # A[i, i + 2]: -i K2 c_{n+2}
+    ab[u + 2, :-2] = 1j * k2  # A[i, i - 2]: +i K2 c_{n-2}
+    # Replace the row n = 0 by the normalisation c_0 = 1 / (2 pi).
+    ab[u, centre] = 1.0
+    ab[u - 1, centre + 1] = 0.0
+    ab[u + 1, centre - 1] = 0.0
+    ab[u - 2, centre + 2] = 0.0
+    ab[u + 2, centre - 2] = 0.0
+    rhs = np.zeros(size, dtype=np.complex128)
+    rhs[centre] = 1.0 / (2.0 * np.pi)
+    coeffs = solve_banded((u, u), ab, rhs)
+
+    edge = np.abs(coeffs[[0, 1, -2, -1]]).max()
+    if edge > _CONVERGENCE_RATIO * abs(coeffs[centre]):
+        raise ValueError(
+            f"Fourier truncation has not converged with n_modes={n_modes}: the outermost "
+            f"coefficients reach {edge / abs(coeffs[centre]):.2e} of c_0 (limit "
+            f"{_CONVERGENCE_RATIO:.0e}); increase n_modes"
+        )
+    k = np.arange(max_harmonic + 1)
+    return (2.0 * np.pi * coeffs[centre - k]).astype(np.complex128)
+
+
+def relative_phase(moments: NDArray[np.complex128]) -> float:
+    """Relative phase of the second circular moment with respect to the first.
+
+    Returns :math:`\\beta = \\arg(m_2\\,\\overline{m_1}^{\\,2})`, the one phase of the
+    pair :math:`(m_1, m_2)` that survives a constant phase shift of one
+    oscillator, since such a shift multiplies :math:`m_k` by :math:`e^{ik\\phi}`.
+
+    Parameters
+    ----------
+    moments : ndarray of complex, shape (K,) with K >= 3
+        Circular moments with entry ``k`` equal to :math:`E[e^{ik\\Delta}]`, as
+        returned by :func:`stationary_moments` or estimated from a record.
+
+    Returns
+    -------
+    beta : float
+        Relative phase in radians, in :math:`(-\\pi, \\pi]`; NaN when
+        :math:`|m_1|` or :math:`|m_2|` is below ``1e-12``, where it is undefined.
+
+    Raises
+    ------
+    ValueError
+        If ``moments`` holds fewer than three entries.
+
+    Notes
+    -----
+    When to use: alongside the moduli :math:`|m_1|` and :math:`|m_2|`, which
+    together with :math:`\\beta` are the three real numbers on which every
+    shift-invariant measure of the bench depends. In the two-harmonic dyad its
+    sign follows the sign of :math:`K_2`. Moments are as in Gatto & Jammalamadaka
+    (2007), DOI: 10.1016/j.stamet.2006.11.003.
+
+    Examples
+    --------
+    >>> beta = relative_phase(stationary_moments(0.10, 0.05))
+    >>> round(beta, 2)
+    0.36
+    """
+    m = np.asarray(moments)
+    if m.ndim != 1 or m.shape[0] < 3:
+        raise ValueError(
+            f"moments must be a 1-D array of at least 3 entries, got shape {m.shape}"
+        )
+    m1, m2 = m[1], m[2]
+    if abs(m1) < _MIN_MODULUS or abs(m2) < _MIN_MODULUS:
+        return float("nan")
+    return float(np.angle(m2 * np.conj(m1) ** 2))
