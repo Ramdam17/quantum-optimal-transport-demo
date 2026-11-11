@@ -81,7 +81,10 @@ def test_quadratic_qot_on_diagonal_states_matches_classical_w2_squared():
 
 # ----------------------------- Pure-state SWAP-cost identity -------------- #
 def test_swap_qot_on_pure_states_equals_one_minus_squared_overlap():
-    """SDP returns 1 - |<psi|phi>|^2 for pure states (Cole et al., 2023).
+    """SDP returns 1 - |<psi|phi>|^2 for pure states.
+
+    The cost is I - SWAP, twice the SWAP cost of Cole, Eckstein, Friedland and
+    Zyczkowski (2023).
 
     Note: pure-state marginals are rank-1 constraints --- a degenerate case for
     interior-point SDP solvers. Tolerance ~1e-3 absolute is realistic on this

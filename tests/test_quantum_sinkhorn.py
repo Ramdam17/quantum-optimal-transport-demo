@@ -2,7 +2,11 @@ import numpy as np
 import pytest
 
 from qot_course.quantum.composite import partial_trace, tensor
-from qot_course.quantum.density import density_matrix, maximally_mixed
+from qot_course.quantum.density import (
+    density_matrix,
+    maximally_mixed,
+    von_neumann_entropy,
+)
 from qot_course.quantum.states import KET_PLUS
 from qot_course.quantum_ot.sdp import (
     quadratic_position_cost,
@@ -176,3 +180,44 @@ def test_operator_sinkhorn_equals_sdp_in_commuting_case():
     P_iter, _ = operator_sinkhorn(rho_a, rho_b, C, epsilon=eps)
     _, P_sdp = quantum_sinkhorn_sdp(rho_a, rho_b, C, epsilon=eps)
     np.testing.assert_allclose(P_iter, P_sdp, atol=1e-6)
+
+
+# ----------------------------- Returned objective value ------------------ #
+# A pure marginal admits exactly one coupling, the product state, so the entropic
+# objective has a closed form. The solver reaches that boundary point only with status
+# "optimal_inaccurate": the measured error on the plan is about 3.5e-4, hence this bound.
+PURE_MARGINAL_OBJECTIVE_ATOL = 2e-3
+
+
+@pytest.mark.parametrize("pure_side", ["a", "b"])
+def test_quantum_sinkhorn_sdp_objective_is_finite_for_a_pure_marginal(pure_side):
+    """With a pure marginal the returned objective is tr(C rho_A x rho_B) - eps ln 2.
+
+    Regression test: the value used to come back as ``inf`` because the plan sits on the
+    boundary of the PSD cone and the solver returns eigenvalues of order -1e-7 there.
+    """
+    plus = density_matrix(KET_PLUS)
+    mixed = maximally_mixed(2)
+    rho_a, rho_b = (plus, mixed) if pure_side == "a" else (mixed, plus)
+    C = quadratic_position_cost([0.0, 1.0])
+    eps = 0.4
+    value, plan = quantum_sinkhorn_sdp(rho_a, rho_b, C, epsilon=eps)
+    assert np.isfinite(value)
+    # Unique coupling = product; tr(C * product) = 1/2 and S(product) = ln 2 nats.
+    expected = 0.5 - eps * np.log(2.0)
+    assert value == pytest.approx(expected, abs=PURE_MARGINAL_OBJECTIVE_ATOL)
+    np.testing.assert_allclose(
+        plan, tensor(rho_a, rho_b), atol=PURE_MARGINAL_OBJECTIVE_ATOL
+    )
+
+
+def test_quantum_sinkhorn_sdp_objective_matches_its_plan():
+    """The returned value is tr(C P) - eps S(P) evaluated on the returned plan."""
+    rho_a = np.diag([0.7, 0.3]).astype(complex)
+    rho_b = maximally_mixed(2)
+    C = quadratic_position_cost([0.0, 1.0])
+    eps = 0.4
+    value, plan = quantum_sinkhorn_sdp(rho_a, rho_b, C, epsilon=eps)
+    transport = float(np.real(np.trace(C @ plan)))
+    entropy_nats = von_neumann_entropy(plan, base=np.e)
+    assert value == pytest.approx(transport - eps * entropy_nats, abs=1e-9)

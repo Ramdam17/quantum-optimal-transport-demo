@@ -17,18 +17,23 @@ variable, with linear partial-trace constraints and the PSD cone constraint
 
 Two canonical cost operators appear in the literature:
 
-- **SWAP cost** :math:`C = I - \\mathrm{SWAP}` (Cole, Lostaglio, Verma, Wilde, 2023).
+- **SWAP cost** :math:`C = I - \\mathrm{SWAP}`, twice the cost
+  :math:`\\tfrac12 (I - \\mathrm{SWAP})` of Cole, Eckstein, Friedland and Zyczkowski (2023).
   For pure states the SDP returns :math:`1 - |\\langle\\psi|\\phi\\rangle|^2`.
 - **Quadratic position cost** :math:`C = (X_A \\otimes I - I \\otimes X_B)^2` for some
   diagonal "position" observable :math:`X`. For diagonal :math:`\\rho_A, \\rho_B` in the
   :math:`X` eigenbasis the SDP returns the classical :math:`W_2^2` with cost
   :math:`(i - j)^2` --- the diagonal-collapse principle of S12.
 
-References: G. De Palma, D. Trevisan, "Quantum optimal transport with quantum
-channels", Ann. Henri Poincare 22, 3199 (2021); S. Cole, M. Lostaglio, K. Verma,
-M. M. Wilde, "Quantum Wasserstein distance based on an optimization over separable
-states", IEEE Trans. Inf. Theory (2023); D. Trevisan, "Optimal transport methods for
-quantum systems", arXiv:2202.02091 (2022).
+References: S. Cole, M. Eckstein, S. Friedland, K. Zyczkowski, "On quantum optimal
+transport", Math. Phys. Anal. Geom. 26, 14 (2023), doi:10.1007/s11040-023-09456-7 (the
+problem solved here: all quantum couplings, as an SDP); F. Golse, C. Mouhot, T. Paul,
+"On the mean field and classical limits of quantum mechanics", Commun. Math. Phys.
+343, 165 (2016), doi:10.1007/s00220-015-2485-7 (first transport problem over quantum
+couplings); G. De Palma, D. Trevisan, "Quantum optimal transport with quantum
+channels", Ann. Henri Poincare 22, 3199 (2021), doi:10.1007/s00023-021-01042-3 (the
+neighbouring channel formulation); D. Trevisan, "Quantum optimal transport: an
+invitation", Boll. Unione Mat. Ital. 18, 347 (2025), doi:10.1007/s40574-024-00428-5.
 """
 
 from __future__ import annotations
@@ -54,7 +59,8 @@ def swap_matrix(d: int) -> np.ndarray:
 def swap_cost(d: int) -> np.ndarray:
     """Cost operator :math:`C = I - \\mathrm{SWAP}` on :math:`\\mathcal{H}^{\\otimes 2}`.
 
-    Used by Cole et al. (2023). For pure-state inputs the QOT SDP returns
+    Twice the cost :math:`\\tfrac12 (I - \\mathrm{SWAP})` of Cole, Eckstein, Friedland and
+    Zyczkowski (2023). For pure-state inputs the QOT SDP returns
     :math:`1 - |\\langle\\psi|\\phi\\rangle|^2`.
     """
     return np.eye(d * d, dtype=complex) - swap_matrix(d)
@@ -130,7 +136,7 @@ def quantum_ot_sdp(
 def quantum_wasserstein_squared_swap(
     rho_a: np.ndarray, rho_b: np.ndarray, solver: str | None = None
 ) -> float:
-    """Quantum-Wasserstein-:math:`^2` with SWAP cost (Cole et al., 2023).
+    """Quantum-Wasserstein-:math:`^2` with SWAP cost :math:`I - \\mathrm{SWAP}`.
 
     Equivalent to :math:`\\mathrm{QOT}(\\rho_A, \\rho_B)` with :math:`C = I - \\mathrm{SWAP}`.
     """
