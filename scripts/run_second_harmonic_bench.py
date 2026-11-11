@@ -52,10 +52,22 @@ duration at the end of ``durations_s``, therefore leaves every earlier number
 unchanged, and a comparison that is not made frees its slot without moving any
 other. :func:`compare_conditions` then spawns its six record sets from the
 child it receives. The time-step check uses its own tree, rooted at the
-top-level ``seed`` of the configuration file and independent of the master
-seeds: ``SeedSequence(seed, spawn_key=(i, j))``, that is child ``j`` of child
-``i``, goes to setting ``i`` of ``timestep_check.settings`` and time step ``j``
-of ``timestep_check.dt_values``.
+top-level ``seed`` of the configuration file rather than at a key of the
+section (the section has none for it), and independent of the master seeds:
+``SeedSequence(seed, spawn_key=(i, j, c))``, that is child ``c`` of child ``j``
+of child ``i``, goes to setting ``i`` of ``timestep_check.settings``, time step
+``j`` of ``timestep_check.dt_values`` and chunk ``c`` of records, the chunks
+holding ``timestep_check.records_per_chunk`` records each, in record order,
+with a smaller last chunk when the count does not divide evenly.
+
+Rank identity. ``continuity.json`` writes, beside each Spearman coefficient as
+:func:`scipy.stats.spearmanr` returns it, a boolean that says whether the two
+rank vectors of :func:`scipy.stats.rankdata` are equal element by element. Both
+are written because the coefficient is a floating-point Pearson correlation of
+the ranks: on the full 26-point ``k1`` grid of the default configuration,
+``spearmanr`` returned 0.9999999999999999 for rank vectors that are identical
+(measured on 2026-11-11), so the coefficient alone cannot say whether the
+order is exactly preserved.
 
 Run::
 
@@ -81,7 +93,7 @@ from typing import Any
 
 import numpy as np
 import scipy
-from scipy.stats import spearmanr
+from scipy.stats import rankdata, spearmanr
 
 from qot_course.quantum_ot.bench_protocol import compare_conditions, long_run_statistics
 from qot_course.quantum_ot.biharmonic import (
@@ -439,7 +451,9 @@ def write_continuity(
     result : dict
         ``k1`` (the grid), ``abs_m1``, ``abs_m2`` and ``qmi_rich`` along it, and
         ``spearman_abs_m1_abs_m2``, ``spearman_abs_m1_qmi_rich``, the Spearman
-        rank correlations of :func:`scipy.stats.spearmanr`.
+        rank correlations of :func:`scipy.stats.spearmanr`, and
+        ``ranks_identical_abs_m1_abs_m2``, ``ranks_identical_abs_m1_qmi_rich``,
+        true when the rank vectors of :func:`scipy.stats.rankdata` are equal.
     """
     path = out / "continuity.json"
     with _Stage("continuity", path):
@@ -465,6 +479,14 @@ def write_continuity(
             "qmi_rich": qmi,
             "spearman_abs_m1_abs_m2": float(spearmanr(abs_m1, abs_m2).statistic),
             "spearman_abs_m1_qmi_rich": float(spearmanr(abs_m1, qmi).statistic),
+            # Exact statement of rank identity (see "Rank identity" in the module
+            # docstring): spearmanr can round below 1 for identical ranks.
+            "ranks_identical_abs_m1_abs_m2": bool(
+                np.array_equal(rankdata(abs_m1), rankdata(abs_m2))
+            ),
+            "ranks_identical_abs_m1_qmi_rich": bool(
+                np.array_equal(rankdata(abs_m1), rankdata(qmi))
+            ),
         }
         _write_json(path, result)
         logger.info(
@@ -482,17 +504,28 @@ def _complex_mean_and_se(z: np.ndarray) -> tuple[complex, float]:
     return mean, se
 
 
+def _gap_in_se(simulated: float, exact: float, se: float) -> float:
+    """``(simulated - exact) / se``, NaN when the standard error is zero."""
+    if se == 0.0:
+        return float("nan")
+    return (simulated - exact) / se
+
+
 def write_timestep_check(
     section: Mapping[str, Any], model: Mapping[str, float], seed: int, out: Path
 ) -> list[dict[str, float]]:
     """Simulated against exact moduli at each time step, written to ``timestep_check.csv``.
 
     For each setting and each time step, ``timestep_check.n_records`` records of
-    ``timestep_check.duration_s`` seconds are simulated. Each record gives its
-    complex sample moments; the simulated modulus is the modulus of their mean
-    over records, and its ``se`` is the standard error of that complex mean,
+    ``timestep_check.duration_s`` seconds are simulated in chunks of at most
+    ``timestep_check.records_per_chunk`` records, so that memory holds the phases
+    of one chunk only. Each record is reduced at once to its complex sample
+    moments (one complex number per record and harmonic), and only those are
+    kept. The simulated modulus is the modulus of their mean over all records,
+    and its ``se`` is the standard error of that complex mean,
     ``sqrt(sum |z_r - mean|^2 / (n - 1) / n)``, which bounds the standard error of
-    the modulus to first order.
+    the modulus to first order. The columns ``abs_m1_gap_se`` and
+    ``abs_m2_gap_se`` give ``(sim - exact) / se``.
 
     Parameters
     ----------
@@ -517,53 +550,82 @@ def write_timestep_check(
         settings = [(float(k1), float(k2)) for k1, k2 in check["settings"]]
         dt_values = [float(dt) for dt in check["dt_values"]]
         n_records = int(check["n_records"])
+        records_per_chunk = int(check["records_per_chunk"])
+        if records_per_chunk < 1:
+            raise ValueError(
+                f"timestep_check.records_per_chunk must be at least 1, got {records_per_chunk}"
+            )
         duration = float(check["duration_s"])
         solver_kwargs = _select(model, SOLVER_KEYS)
+        # Chunk sizes: full chunks, then the remainder (the last chunk may be smaller).
+        chunk_sizes = [
+            min(records_per_chunk, n_records - first)
+            for first in range(0, n_records, records_per_chunk)
+        ]
         rows = []
         for setting_index, (k1, k2) in enumerate(settings):
             exact = stationary_moments(k1, k2, max_harmonic=MAX_HARMONIC, **solver_kwargs)
             for dt_index, dt in enumerate(dt_values):
-                # Child dt_index of child setting_index of SeedSequence(seed).
-                dt_seed = np.random.SeedSequence(seed, spawn_key=(setting_index, dt_index))
                 start = time.perf_counter()
                 simulator_kwargs = {**_select(model, SIMULATOR_KEYS), "dt": dt}
-                theta_1, theta_2 = simulate_biharmonic_dyad(
-                    k1,
-                    k2,
-                    n_records=n_records,
-                    duration=duration,
-                    seed=dt_seed,
-                    **simulator_kwargs,
-                )
-                delta = theta_1 - theta_2
-                del theta_1, theta_2
-                m1, se1 = _complex_mean_and_se(np.mean(np.exp(1j * delta), axis=1))
-                m2, se2 = _complex_mean_and_se(np.mean(np.exp(2j * delta), axis=1))
-                del delta
+                # One complex sample moment per record and harmonic (rows 1 and 2).
+                record_moments = np.empty((MAX_HARMONIC + 1, n_records), dtype=complex)
+                first = 0
+                for chunk_index, chunk_size in enumerate(chunk_sizes):
+                    # Child chunk_index of child dt_index of child setting_index of
+                    # SeedSequence(seed) (see "Seeds" in the module docstring).
+                    chunk_seed = np.random.SeedSequence(
+                        seed, spawn_key=(setting_index, dt_index, chunk_index)
+                    )
+                    theta_1, theta_2 = simulate_biharmonic_dyad(
+                        k1,
+                        k2,
+                        n_records=chunk_size,
+                        duration=duration,
+                        seed=chunk_seed,
+                        **simulator_kwargs,
+                    )
+                    delta = theta_1 - theta_2
+                    del theta_1, theta_2
+                    for harmonic in range(1, MAX_HARMONIC + 1):
+                        record_moments[harmonic, first : first + chunk_size] = np.mean(
+                            np.exp(1j * harmonic * delta), axis=1
+                        )
+                    del delta
+                    first += chunk_size
+                m1, se1 = _complex_mean_and_se(record_moments[1])
+                m2, se2 = _complex_mean_and_se(record_moments[2])
+                abs_m1_exact, abs_m2_exact = float(abs(exact[1])), float(abs(exact[2]))
                 row = {
                     "k1": k1,
                     "k2": k2,
                     "dt": dt,
-                    "abs_m1_exact": float(abs(exact[1])),
+                    "n_records": n_records,
+                    "abs_m1_exact": abs_m1_exact,
                     "abs_m1_sim": float(abs(m1)),
                     "abs_m1_se": se1,
-                    "abs_m2_exact": float(abs(exact[2])),
+                    "abs_m1_gap_se": _gap_in_se(float(abs(m1)), abs_m1_exact, se1),
+                    "abs_m2_exact": abs_m2_exact,
                     "abs_m2_sim": float(abs(m2)),
                     "abs_m2_se": se2,
+                    "abs_m2_gap_se": _gap_in_se(float(abs(m2)), abs_m2_exact, se2),
                 }
                 rows.append(row)
                 logger.info(
-                    "timestep_check: K1=%g K2=%g dt=%g |m1| %.4f sim vs %.4f exact "
-                    "(se %.4f), |m2| %.4f sim vs %.4f exact (se %.4f), %.1f s",
+                    "timestep_check: K1=%g K2=%g dt=%g, %d records in %d chunks: "
+                    "|m1| %.4f sim vs %.4f exact (gap %.2f se), |m2| %.4f sim vs "
+                    "%.4f exact (gap %.2f se), %.1f s",
                     k1,
                     k2,
                     dt,
+                    n_records,
+                    len(chunk_sizes),
                     row["abs_m1_sim"],
-                    row["abs_m1_exact"],
-                    se1,
+                    abs_m1_exact,
+                    row["abs_m1_gap_se"],
                     row["abs_m2_sim"],
-                    row["abs_m2_exact"],
-                    se2,
+                    abs_m2_exact,
+                    row["abs_m2_gap_se"],
                     time.perf_counter() - start,
                 )
         _write_csv(path, list(rows[0]), rows)

@@ -52,10 +52,11 @@ second_harmonic_bench:
   trap:
     k2: 0.3
   timestep_check:
-    dt_values: [0.05, 0.025]
+    dt_values: [0.05, 0.025, 0.0125]
     settings: [[0.3, 0.0], [0.1, 0.1], [0.0, 0.1], [0.06, -0.10]]
     duration_s: 2000.0
-    n_records: 64
+    n_records: 1024
+    records_per_chunk: 64        # bounds memory: 1,024 records of 2,000 s at dt 0.0125 would hold about 2.6 GB at once
   quick:                         # overrides used by --quick and by the smoke test
     map: {k1: {points: 4}, k2: {points: 5}}
     protocol: {n_records: 6, durations_s: [20.0], master_seeds: [0]}

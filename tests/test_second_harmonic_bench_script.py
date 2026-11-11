@@ -22,6 +22,8 @@ def test_quick_run_writes_every_result_file(tmp_path):
     assert meta["config"]["protocol"]["n_records"] == 6 and meta["comparisons_not_made"] == []
     cont = json.loads((tmp_path / "continuity.json").read_text())
     assert cont["spearman_abs_m1_abs_m2"] == 1.0
+    assert cont["ranks_identical_abs_m1_abs_m2"] is True
+    assert cont["ranks_identical_abs_m1_qmi_rich"] is True
 
 
 def test_an_unreachable_equal_moduli_pair_is_reported_not_hidden(tmp_path):
