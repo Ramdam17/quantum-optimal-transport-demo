@@ -131,11 +131,14 @@ def course_greatest_hits() -> dict[str, float]:
         np.sqrt(max(0.0, bw_matrix_term))
     )
 
-    # S13 --- QOT SDP.
-    qot_value, _ = quantum_ot_sdp(plus, mixed, C2)
+    # S13 --- QOT SDP. Both pairs have a pure marginal, which the solver functions
+    # answer by a closed form unless told otherwise. This entry is the promise that
+    # the semidefinite program itself returns these values, so the solver is kept in
+    # charge.
+    qot_value, _ = quantum_ot_sdp(plus, mixed, C2, closed_form=False)
     results["S13: QOT(|+><+|, I/2) > 0"] = qot_value
     results["S13: SWAP-QOT^2(|0>, |1>) = 1"] = quantum_wasserstein_squared_swap(
-        density_matrix(KET_0), density_matrix(KET_1)
+        density_matrix(KET_0), density_matrix(KET_1), closed_form=False
     )
 
     # S14 --- Amari quantum bridge identity (LHS vs RHS).

@@ -41,6 +41,8 @@ from __future__ import annotations
 import cvxpy as cp
 import numpy as np
 
+from qot_course.quantum_ot.sinkhorn import _is_pure_state
+
 
 def swap_matrix(d: int) -> np.ndarray:
     """SWAP operator on :math:`\\mathcal{H} \\otimes \\mathcal{H}` of dim :math:`d`.
@@ -86,28 +88,106 @@ def quantum_ot_sdp(
     rho_b: np.ndarray,
     cost: np.ndarray,
     solver: str | None = None,
+    closed_form: bool = True,
 ) -> tuple[float, np.ndarray]:
     """Solve the quantum optimal-transport SDP and return ``(value, plan)``.
 
     Minimises :math:`\\mathrm{tr}(C\\,\\rho_{AB})` over Hermitian PSD couplings
     :math:`\\rho_{AB}` with marginals :math:`\\mathrm{tr}_B(\\rho_{AB}) = \\rho_A` and
-    :math:`\\mathrm{tr}_A(\\rho_{AB}) = \\rho_B`. The returned plan is a complex
-    :math:`d_A d_B \\times d_A d_B` Hermitian PSD matrix.
+    :math:`\\mathrm{tr}_A(\\rho_{AB}) = \\rho_B`.
+
+    When to use: the unregularised transport cost between two density matrices, and the
+    reference that the entropic solvers of :mod:`qot_course.quantum_ot.sinkhorn` approach
+    as their regularisation vanishes.
 
     Parameters
     ----------
-    rho_a, rho_b : array_like
-        Density matrices for the two marginals.
-    cost : array_like
-        Hermitian cost operator on :math:`\\mathcal{H}_A \\otimes \\mathcal{H}_B`.
+    rho_a : array_like, shape (d_a, d_a)
+        Density matrix of the first marginal (dimensionless, unit trace).
+    rho_b : array_like, shape (d_b, d_b)
+        Density matrix of the second marginal (dimensionless, unit trace).
+    cost : array_like, shape (d_a * d_b, d_a * d_b)
+        Hermitian cost operator on :math:`\\mathcal{H}_A \\otimes \\mathcal{H}_B`, in the
+        units the transport cost is read in.
     solver : str, optional
-        cvxpy solver name (e.g. ``"SCS"``, ``"CLARABEL"``). Defaults to cvxpy's choice.
+        cvxpy solver name (e.g. ``"SCS"``, ``"CLARABEL"``). Defaults to CLARABEL with a
+        duality-gap tolerance of 1e-10. Not consulted when the closed form applies.
+    closed_form : bool, default True
+        When ``True`` and at least one marginal is a pure state, return the product
+        coupling and its cost directly, without calling the solver (see the Notes).
+        Pass ``False`` to send every input to the numerical solver, which is what a
+        check of the solver against the pure-state formula needs.
+
+    Returns
+    -------
+    value : float
+        The minimal transport cost :math:`\\mathrm{tr}(C\\,\\rho_{AB}^\\star)`, in the units
+        of ``cost``.
+    plan : numpy.ndarray, complex, shape (d_a * d_b, d_a * d_b)
+        The optimal coupling :math:`\\rho_{AB}^\\star`, Hermitian and positive
+        semidefinite, in numpy's Kronecker ordering.
+
+    Raises
+    ------
+    RuntimeError
+        If the solver stops with a status other than ``optimal`` or
+        ``optimal_inaccurate``.
+    cvxpy.error.SolverError
+        If the solver fails outright. With ``closed_form=False`` and a pure three-level
+        marginal this is the usual outcome (see the Notes).
+
+    Notes
+    -----
+    A pure marginal leaves a single coupling. If :math:`\\rho_A = |\\psi\\rangle\\langle
+    \\psi|`, the operator :math:`(I - |\\psi\\rangle\\langle\\psi|) \\otimes I` is positive
+    and has zero expectation in any coupling, so the support of the coupling lies in
+    :math:`|\\psi\\rangle \\otimes \\mathcal{H}_B` and the coupling is :math:`\\rho_A \\otimes
+    \\rho_B`. The feasible set is one point and the minimum is its cost,
+    :math:`\\mathrm{tr}(C\\,\\rho_A \\otimes \\rho_B)`. With the cost
+    :math:`I - \\mathrm{SWAP}` and two pure states this is :math:`1 -
+    |\\langle\\psi|\\phi\\rangle|^2`.
+
+    That single point has the rank of the other marginal, below :math:`d_A d_B`, so it
+    sits on the boundary of the PSD cone, where an interior-point method has no interior
+    to walk through. Measured
+    on CLARABEL over ten random draws per case: on three-level systems the solver
+    raised ``SolverError`` nine times for a pure state against a full-rank one and seven
+    times for two pure states, and the draws it survived were off by 5e-4 to 7e-4; the
+    same counts were obtained at the default tolerance and at a gap of 1e-8, so the tight
+    gap requested here is not the cause. On two-level systems the solver never failed
+    and its value was within 8.8e-5 of the formula. The closed form replaces all of
+    this by a Kronecker product, exact to rounding error.
+
+    A marginal is taken as pure when its spectrum equals :math:`(0, \\dots, 0, 1)` within
+    1e-12, the test of the entropic solver
+    (:func:`qot_course.quantum_ot.sinkhorn.quantum_sinkhorn_sdp`). A nearly pure
+    marginal is not pure and goes to the solver.
+
+    The closed form is an elementary consequence of positivity; the SDP itself is the
+    coupling problem of Cole, Eckstein, Friedland and Zyczkowski, Math. Phys. Anal.
+    Geom. 26, 14 (2023), doi:10.1007/s11040-023-09456-7.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> plus = np.array([[0.5, 0.5], [0.5, 0.5]], dtype=complex)
+    >>> mixed = np.eye(2, dtype=complex) / 2
+    >>> value, plan = quantum_ot_sdp(plus, mixed, quadratic_position_cost([0.0, 1.0]))
+    >>> round(value, 12)
+    0.5
+    >>> bool(np.allclose(plan, np.kron(plus, mixed)))
+    True
     """
     rho_a = np.asarray(rho_a, dtype=complex)
     rho_b = np.asarray(rho_b, dtype=complex)
     cost = np.asarray(cost, dtype=complex)
     d_a = rho_a.shape[0]
     d_b = rho_b.shape[0]
+
+    if closed_form and (_is_pure_state(rho_a) or _is_pure_state(rho_b)):
+        # A pure marginal leaves one coupling only, the product (see the Notes).
+        product = np.kron(rho_a, rho_b)
+        return float(np.real(np.trace(cost @ product))), product
 
     plan = cp.Variable((d_a * d_b, d_a * d_b), hermitian=True)
     constraints = [
@@ -134,14 +214,22 @@ def quantum_ot_sdp(
 
 
 def quantum_wasserstein_squared_swap(
-    rho_a: np.ndarray, rho_b: np.ndarray, solver: str | None = None
+    rho_a: np.ndarray,
+    rho_b: np.ndarray,
+    solver: str | None = None,
+    closed_form: bool = True,
 ) -> float:
     """Quantum-Wasserstein-:math:`^2` with SWAP cost :math:`I - \\mathrm{SWAP}`.
 
     Equivalent to :math:`\\mathrm{QOT}(\\rho_A, \\rho_B)` with :math:`C = I - \\mathrm{SWAP}`.
+    ``solver`` and ``closed_form`` are passed to :func:`quantum_ot_sdp`: by default a
+    pure marginal returns :math:`\\mathrm{tr}((I - \\mathrm{SWAP})\\,\\rho_A \\otimes \\rho_B)`
+    without a solver call, and ``closed_form=False`` sends it to the solver.
     """
     if rho_a.shape != rho_b.shape:
         raise ValueError("SWAP cost requires equal-dimension subsystems.")
     d = rho_a.shape[0]
-    value, _ = quantum_ot_sdp(rho_a, rho_b, swap_cost(d), solver=solver)
+    value, _ = quantum_ot_sdp(
+        rho_a, rho_b, swap_cost(d), solver=solver, closed_form=closed_form
+    )
     return value

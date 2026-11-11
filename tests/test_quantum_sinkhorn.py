@@ -1,6 +1,5 @@
 import warnings
 
-import cvxpy as cp
 import numpy as np
 import pytest
 
@@ -22,6 +21,12 @@ from qot_course.quantum_ot.sinkhorn import (
     quantum_sinkhorn_cost,
     quantum_sinkhorn_sdp,
     umegaki_kl_to_kernel,
+)
+from tests.quantum_ot_helpers import (
+    count_solver_calls,
+    random_full_rank_state,
+    random_hermitian,
+    random_ket,
 )
 
 
@@ -194,38 +199,6 @@ def test_operator_sinkhorn_equals_sdp_in_commuting_case():
 PURE_MARGINAL_EXACT_ATOL = 1e-12
 
 
-def _random_ket(rng, dim):
-    """Normalised complex vector of length ``dim``."""
-    ket = rng.normal(size=dim) + 1j * rng.normal(size=dim)
-    return ket / np.linalg.norm(ket)
-
-
-def _random_full_rank_state(rng, dim):
-    """Full-rank density matrix of shape ``(dim, dim)``."""
-    ginibre = rng.normal(size=(dim, dim)) + 1j * rng.normal(size=(dim, dim))
-    wishart = ginibre @ ginibre.conj().T
-    return wishart / np.trace(wishart).real
-
-
-def _random_hermitian(rng, dim):
-    """Hermitian matrix of shape ``(dim, dim)``."""
-    half = rng.normal(size=(dim, dim)) + 1j * rng.normal(size=(dim, dim))
-    return half + half.conj().T
-
-
-def _count_solver_calls(monkeypatch):
-    """Record every call to ``cvxpy.Problem.solve`` and return the list of records."""
-    calls = []
-    original_solve = cp.Problem.solve
-
-    def counting_solve(self, *args, **kwargs):
-        calls.append(kwargs.get("solver"))
-        return original_solve(self, *args, **kwargs)
-
-    monkeypatch.setattr(cp.Problem, "solve", counting_solve)
-    return calls
-
-
 @pytest.mark.parametrize("pure_side", ["a", "b"])
 def test_quantum_sinkhorn_sdp_is_exact_for_a_pure_marginal(pure_side):
     """With a pure marginal the returned objective is tr(C rho_A x rho_B) - eps ln 2.
@@ -254,10 +227,10 @@ def test_quantum_sinkhorn_sdp_is_exact_for_a_pure_marginal(pure_side):
 def test_quantum_sinkhorn_sdp_is_exact_for_a_pure_qutrit_marginal(pure_side):
     """Pure qutrit against a full-rank qutrit, generic cost: value = tr(C P) - eps S(mixed)."""
     rng = np.random.default_rng(0)
-    pure = density_matrix(_random_ket(rng, 3))
-    full_rank = _random_full_rank_state(rng, 3)
+    pure = density_matrix(random_ket(rng, 3))
+    full_rank = random_full_rank_state(rng, 3)
     rho_a, rho_b = (pure, full_rank) if pure_side == "a" else (full_rank, pure)
-    C = _random_hermitian(rng, 9)
+    C = random_hermitian(rng, 9)
     eps = 0.3
     value, plan = quantum_sinkhorn_sdp(rho_a, rho_b, C, epsilon=eps)
     product = tensor(rho_a, rho_b)
@@ -272,9 +245,9 @@ def test_quantum_sinkhorn_sdp_is_exact_for_a_pure_qutrit_marginal(pure_side):
 def test_quantum_sinkhorn_sdp_is_exact_when_both_marginals_are_pure():
     """Two pure marginals: the plan is |psi><psi| x |phi><phi| and its entropy is zero."""
     rng = np.random.default_rng(1)
-    rho_a = density_matrix(_random_ket(rng, 2))
-    rho_b = density_matrix(_random_ket(rng, 2))
-    C = _random_hermitian(rng, 4)
+    rho_a = density_matrix(random_ket(rng, 2))
+    rho_b = density_matrix(random_ket(rng, 2))
+    C = random_hermitian(rng, 4)
     value, plan = quantum_sinkhorn_sdp(rho_a, rho_b, C, epsilon=0.7)
     product = tensor(rho_a, rho_b)
     np.testing.assert_allclose(plan, product, atol=PURE_MARGINAL_EXACT_ATOL)
@@ -294,7 +267,7 @@ def test_quantum_sinkhorn_sdp_skips_the_solver_only_for_a_pure_marginal(
     monkeypatch, second_eigenvalue, expected_solver_calls
 ):
     """The closed form is used for a marginal that is pure up to rounding, and for no other."""
-    calls = _count_solver_calls(monkeypatch)
+    calls = count_solver_calls(monkeypatch)
     rho_a = np.diag([1.0 - second_eigenvalue, second_eigenvalue]).astype(complex)
     C = quadratic_position_cost([0.0, 1.0])
     quantum_sinkhorn_sdp(rho_a, maximally_mixed(2), C, epsilon=0.4)
@@ -323,7 +296,7 @@ def test_is_pure_state_rejects_matrices_that_are_not_pure_states(not_a_state):
 def test_is_pure_state_accepts_pure_states_of_any_dimension():
     rng = np.random.default_rng(2)
     for dim in (1, 2, 3, 9):
-        assert _is_pure_state(density_matrix(_random_ket(rng, dim)))
+        assert _is_pure_state(density_matrix(random_ket(rng, dim)))
     assert not _is_pure_state(maximally_mixed(2))
 
 

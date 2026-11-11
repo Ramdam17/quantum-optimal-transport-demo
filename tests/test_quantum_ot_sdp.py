@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import ot
 import pytest
@@ -13,6 +15,12 @@ from qot_course.quantum_ot.sdp import (
     swap_matrix,
 )
 from qot_course.quantum_ot.sinkhorn import quantum_sinkhorn_cost
+from tests.quantum_ot_helpers import (
+    count_solver_calls,
+    random_full_rank_state,
+    random_hermitian,
+    random_ket,
+)
 
 
 # ----------------------------- SWAP basics --------------------------------- #
@@ -80,8 +88,11 @@ def test_quadratic_qot_on_diagonal_states_matches_classical_w2_squared():
 
 
 # ----------------------------- Pure-state SWAP-cost identity -------------- #
-def test_swap_qot_on_pure_states_equals_one_minus_squared_overlap():
-    """SDP returns 1 - |<psi|phi>|^2 for pure states.
+def test_swap_qot_solver_on_pure_states_equals_one_minus_squared_overlap():
+    """The numerical solver returns 1 - |<psi|phi>|^2 for pure states.
+
+    ``closed_form=False`` keeps the interior-point solver in charge, so this test
+    checks the solver against the formula and not the formula against itself.
 
     The cost is I - SWAP, twice the SWAP cost of Cole, Eckstein, Friedland and
     Zyczkowski (2023).
@@ -99,7 +110,7 @@ def test_swap_qot_on_pure_states_equals_one_minus_squared_overlap():
         rho_a = density_matrix(psi)
         rho_b = density_matrix(phi)
         expected = 1.0 - abs(np.vdot(psi, phi)) ** 2
-        actual = quantum_wasserstein_squared_swap(rho_a, rho_b)
+        actual = quantum_wasserstein_squared_swap(rho_a, rho_b, closed_form=False)
         assert actual == pytest.approx(expected, abs=1e-3)
 
 
@@ -160,3 +171,87 @@ def test_entropic_cost_converges_to_sdp_as_epsilon_to_zero():
     sdp_value, _ = quantum_ot_sdp(rho_a, rho_b, cost)
     near = quantum_sinkhorn_cost(rho_a, rho_b, cost, epsilon=0.02)
     assert abs(near - sdp_value) < 0.05
+
+
+# ----------------------------- Pure marginal: closed form ----------------- #
+# A pure marginal admits exactly one coupling, the product state, so the function
+# returns its cost without calling the solver. The bound is the rounding error of a
+# Kronecker product and a trace. The solver it replaces fails on most three-level
+# cases: over ten random draws it raised a SolverError nine times for a pure state
+# against a full-rank one and seven times for two pure states, and the draws it
+# survived were off by 5e-4 to 7e-4.
+PURE_MARGINAL_EXACT_ATOL = 1e-12
+
+
+@pytest.mark.parametrize("pure_side", ["a", "b"])
+def test_quantum_ot_sdp_is_exact_for_a_pure_qutrit_marginal(pure_side):
+    """Value and plan are those of the product state, in dimension three."""
+    rng = np.random.default_rng(11)
+    for _ in range(5):
+        pure = density_matrix(random_ket(rng, 3))
+        mixed = random_full_rank_state(rng, 3)
+        cost = random_hermitian(rng, 9)
+        rho_a, rho_b = (pure, mixed) if pure_side == "a" else (mixed, pure)
+        product = np.kron(rho_a, rho_b)
+        expected = float(np.real(np.trace(cost @ product)))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            value, plan = quantum_ot_sdp(rho_a, rho_b, cost)
+        assert value == pytest.approx(expected, abs=PURE_MARGINAL_EXACT_ATOL)
+        np.testing.assert_allclose(plan, product, atol=PURE_MARGINAL_EXACT_ATOL)
+
+
+def test_swap_qot_on_pure_qutrit_states_is_exactly_one_minus_squared_overlap():
+    """Through the SWAP wrapper, two pure qutrits give 1 - |<psi|phi>|^2 exactly."""
+    rng = np.random.default_rng(12)
+    for _ in range(5):
+        psi = random_ket(rng, 3)
+        phi = random_ket(rng, 3)
+        expected = 1.0 - abs(np.vdot(psi, phi)) ** 2
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            actual = quantum_wasserstein_squared_swap(
+                density_matrix(psi), density_matrix(phi)
+            )
+        assert actual == pytest.approx(expected, abs=PURE_MARGINAL_EXACT_ATOL)
+
+
+@pytest.mark.parametrize(
+    ("second_eigenvalue", "expected_solver_calls"),
+    [(0.0, 0), (1e-13, 0), (1e-9, 1), (1e-6, 1)],
+)
+def test_quantum_ot_sdp_skips_the_solver_only_for_a_pure_marginal(
+    monkeypatch, second_eigenvalue, expected_solver_calls
+):
+    """The closed form applies to pure marginals and to nothing else."""
+    calls = count_solver_calls(monkeypatch)
+    rho_a = np.diag([1.0 - second_eigenvalue, second_eigenvalue]).astype(complex)
+    rho_b = maximally_mixed(2)
+    quantum_ot_sdp(rho_a, rho_b, quadratic_position_cost([0.0, 1.0]))
+    assert len(calls) == expected_solver_calls
+
+
+def test_quantum_ot_sdp_runs_the_solver_on_a_pure_marginal_when_asked(monkeypatch):
+    """``closed_form=False`` hands a pure marginal to the solver, as before."""
+    calls = count_solver_calls(monkeypatch)
+    rho_a = density_matrix(KET_PLUS)
+    rho_b = maximally_mixed(2)
+    cost = quadratic_position_cost([0.0, 1.0])
+    value, plan = quantum_ot_sdp(rho_a, rho_b, cost, closed_form=False)
+    assert calls == ["CLARABEL"]
+    product = np.kron(rho_a, rho_b)
+    expected = float(np.real(np.trace(cost @ product)))
+    # Solver accuracy on this pair, not rounding error: measured 1e-7 to 1e-8.
+    assert value == pytest.approx(expected, abs=1e-5)
+    np.testing.assert_allclose(plan, product, atol=1e-3)
+
+
+def test_swap_wrapper_passes_the_closed_form_switch_through(monkeypatch):
+    """The SWAP wrapper forwards ``closed_form`` to the solver function."""
+    calls = count_solver_calls(monkeypatch)
+    rho_a = density_matrix(KET_0)
+    rho_b = density_matrix(KET_PLUS)
+    quantum_wasserstein_squared_swap(rho_a, rho_b)
+    assert calls == []
+    quantum_wasserstein_squared_swap(rho_a, rho_b, closed_form=False)
+    assert calls == ["CLARABEL"]
