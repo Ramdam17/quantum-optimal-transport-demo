@@ -59,6 +59,42 @@ def matrix_gibbs_kernel(cost: np.ndarray, epsilon: float) -> np.ndarray:
     return spla.expm(-np.asarray(cost, dtype=complex) / float(epsilon))
 
 
+# A density matrix built from a normalised ket has its largest eigenvalue within about
+# 1e-15 of one in double precision (measured: at most 1.1e-15 on 8,000 random kets in
+# dimensions 2, 3, 4 and 9). The threshold below leaves three orders of magnitude above
+# that rounding level and still means "pure up to rounding", not "nearly pure".
+_PURE_STATE_EIGENVALUE_ATOL = 1e-12
+
+
+def _is_pure_state(rho: np.ndarray) -> bool:
+    """Tell whether a density matrix is a pure state, up to floating-point rounding.
+
+    Parameters
+    ----------
+    rho : np.ndarray
+        Hermitian positive semidefinite matrix, shape ``(d, d)``, complex. It is
+        divided by its trace, so an unnormalised input is handled.
+
+    Returns
+    -------
+    bool
+        ``True`` when the largest eigenvalue of ``rho / tr(rho)`` is within
+        :data:`_PURE_STATE_EIGENVALUE_ATOL` of one.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> _is_pure_state(np.array([[0.5, 0.5], [0.5, 0.5]], dtype=complex))
+    True
+    >>> _is_pure_state(np.eye(2, dtype=complex) / 2)
+    False
+    """
+    hermitian = 0.5 * (rho + rho.conj().T)
+    largest = float(np.linalg.eigvalsh(hermitian)[-1])
+    trace = float(np.real(np.trace(hermitian)))
+    return bool(1.0 - largest / trace <= _PURE_STATE_EIGENVALUE_ATOL)
+
+
 def quantum_sinkhorn_sdp(
     rho_a: np.ndarray,
     rho_b: np.ndarray,
@@ -66,59 +102,133 @@ def quantum_sinkhorn_sdp(
     epsilon: float,
     solver: str | None = None,
 ) -> tuple[float, np.ndarray]:
-    """Solve the von-Neumann-entropy-regularised quantum OT SDP.
+    """Solve the von-Neumann-entropy-regularised quantum OT problem.
 
     Minimises :math:`\\mathrm{tr}(C\\,\\rho_{AB}) - \\varepsilon\\,S(\\rho_{AB})` over
-    Hermitian PSD couplings with prescribed partial-trace marginals. Returns the
-    optimal *objective value* (transport cost minus :math:`\\varepsilon\\,S`) and the
-    optimal plan.
+    Hermitian PSD couplings with prescribed partial-trace marginals, and returns the
+    optimal objective value together with the optimal plan.
 
-    Note
-    ----
-    cvxpy's :func:`cvxpy.von_neumann_entr` uses the *natural log* convention; the
-    classical Sinkhorn module's :math:`\\varepsilon` in S10 was in the same convention,
-    so the comparison is direct.
+    When to use: as the convex-solver reference for the entropic problem on small
+    systems (two qubits or two qutrits). Use :func:`operator_sinkhorn` when you want
+    the alternating iteration itself; the two agree only in the commuting case.
 
-    The returned objective is evaluated on the returned plan, with the convention
-    :math:`0 \\log 0 = 0`, rather than read from ``problem.value``. When a marginal is
-    rank-deficient (a pure state, for instance) the optimal plan lies on the boundary of
-    the PSD cone, the solver returns eigenvalues of order :math:`-10^{-7}` there, and
-    cvxpy's own evaluation of the entropy at that point is :math:`-\\infty`, which made
-    the reported objective ``inf``. On such boundary cases the solver stops with status
-    ``"optimal_inaccurate"`` and the plan is accurate to about :math:`10^{-3}` only.
+    Parameters
+    ----------
+    rho_a : np.ndarray
+        Density matrix of the first marginal, shape ``(d_a, d_a)``, complex, trace one.
+    rho_b : np.ndarray
+        Density matrix of the second marginal, shape ``(d_b, d_b)``, complex, trace one.
+    cost : np.ndarray
+        Hermitian cost operator, shape ``(d_a * d_b, d_a * d_b)``, complex, in the
+        Kronecker ordering ``A`` then ``B``.
+    epsilon : float
+        Regularisation strength :math:`\\varepsilon > 0`, in the units of ``cost`` per
+        nat of entropy.
+    solver : str, optional
+        cvxpy solver name. Defaults to ``"CLARABEL"`` with a tightened gap tolerance.
+        Ignored when a marginal is pure, because no solve takes place.
+
+    Returns
+    -------
+    objective : float
+        :math:`\\mathrm{tr}(C P) - \\varepsilon\\,S(P)` evaluated on the returned plan,
+        with :math:`S` in nats and the convention :math:`0 \\log 0 = 0`.
+    plan : np.ndarray
+        Optimal coupling :math:`P`, shape ``(d_a * d_b, d_a * d_b)``, complex.
+
+    Raises
+    ------
+    RuntimeError
+        If the solver stops with a status other than ``"optimal"`` or
+        ``"optimal_inaccurate"``.
+
+    Notes
+    -----
+    cvxpy's :func:`cvxpy.von_neumann_entr` uses the natural logarithm, the convention
+    of the classical Sinkhorn module, so the two values of :math:`\\varepsilon` compare
+    directly.
+
+    **Pure marginal: closed form, no solve.** If :math:`\\rho_A = |\\psi\\rangle\\langle
+    \\psi|`, every coupling satisfies :math:`\\mathrm{tr}\\bigl[((I - |\\psi\\rangle
+    \\langle\\psi|) \\otimes I)\\,\\rho_{AB}\\bigr] = \\mathrm{tr}\\bigl[(I - |\\psi\\rangle
+    \\langle\\psi|)\\,\\rho_A\\bigr] = 0`. A positive semidefinite matrix with zero
+    expectation on a projector is supported on the complement, so :math:`\\rho_{AB} =
+    |\\psi\\rangle\\langle\\psi| \\otimes \\sigma`, and the second marginal forces
+    :math:`\\sigma = \\rho_B`. The feasible set is the single point :math:`\\rho_A
+    \\otimes \\rho_B`, whatever the cost and whatever :math:`\\varepsilon`; the same
+    holds with the roles exchanged. The function returns that product and the objective
+    :math:`\\mathrm{tr}(C\\,\\rho_A \\otimes \\rho_B) - \\varepsilon\\,(S(\\rho_A) +
+    S(\\rho_B))` directly. A marginal counts as pure when its largest eigenvalue is
+    within :data:`_PURE_STATE_EIGENVALUE_ATOL` of one, which is the rounding level of a
+    state built from a normalised ket.
+
+    This case is taken out of the solver because the unique coupling lies on the
+    boundary of the PSD cone, where the interior-point method stops with status
+    ``"optimal_inaccurate"``. Measured before the closed form was added: an objective
+    off by 3e-4 to 5e-4 on :math:`|+\\rangle\\langle+|` against :math:`I/2` with the
+    quadratic cost (:math:`\\varepsilon` from 0.05 to 5), and by 2e-2 to 3.5e-2 on a
+    random pure qutrit against a random full-rank qutrit with a random Hermitian cost.
+
+    A marginal that is nearly pure, or rank-deficient without being pure (rank two in
+    dimension three, for instance), still goes to the solver and still meets that
+    boundary. Measured with eigenvalues :math:`(1 - 10^{-10},\\ 10^{-10})` against
+    :math:`I/2`: the returned plan is 2.6e-4 away from the product, although positivity
+    keeps every coupling within about :math:`\\sqrt{10^{-10}} = 10^{-5}` of it. For every
+    solved case the objective is evaluated on the returned plan rather than read from
+    ``problem.value``, which is ``inf`` there: the solver returns eigenvalues of order
+    :math:`-10^{-7}` and cvxpy's own evaluation of the entropy at such a point is
+    :math:`-\\infty`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from qot_course.quantum_ot.sdp import quadratic_position_cost
+    >>> plus = np.full((2, 2), 0.5, dtype=complex)
+    >>> mixed = np.eye(2, dtype=complex) / 2
+    >>> cost = quadratic_position_cost([0.0, 1.0])
+    >>> value, plan = quantum_sinkhorn_sdp(plus, mixed, cost, epsilon=0.4)
+    >>> bool(np.isclose(value, 0.5 - 0.4 * np.log(2.0), atol=1e-12))
+    True
+    >>> bool(np.allclose(plan, np.kron(plus, mixed), atol=1e-12))
+    True
     """
     rho_a = np.asarray(rho_a, dtype=complex)
     rho_b = np.asarray(rho_b, dtype=complex)
     cost = np.asarray(cost, dtype=complex)
     d_a, d_b = rho_a.shape[0], rho_b.shape[0]
 
-    plan = cp.Variable((d_a * d_b, d_a * d_b), hermitian=True)
-    constraints = [
-        plan >> 0,
-        cp.partial_trace(plan, (d_a, d_b), axis=1) == rho_a,
-        cp.partial_trace(plan, (d_a, d_b), axis=0) == rho_b,
-    ]
-    transport = cp.real(cp.trace(cost @ plan))
-    entropy = cp.von_neumann_entr(plan)
-    objective = cp.Minimize(transport - epsilon * entropy)
-    problem = cp.Problem(objective, constraints)
-
-    # We request a tight gap (1e-9); CLARABEL may not certify it and can return status
-    # "optimal_inaccurate" (with a UserWarning we leave visible, not silenced). In
-    # practice the returned value is accurate to ~1e-7--1e-8, confirmed against the
-    # entropic->SDP and Amari-bridge regression tests. We accept that status below.
-    chosen_solver = solver if solver is not None else "CLARABEL"
-    if chosen_solver == "CLARABEL":
-        problem.solve(solver="CLARABEL", tol_gap_abs=1e-9, tol_gap_rel=1e-9)
+    if _is_pure_state(rho_a) or _is_pure_state(rho_b):
+        # A pure marginal leaves one coupling only, the product (see the Notes).
+        plan_value = np.kron(rho_a, rho_b)
     else:
-        problem.solve(solver=chosen_solver)
-    if problem.status not in ("optimal", "optimal_inaccurate"):
-        raise RuntimeError(
-            f"Quantum Sinkhorn SDP did not converge ({problem.status})."
-        )
-    plan_value = np.asarray(plan.value, dtype=complex)
-    # Evaluate the objective on the plan itself: ``problem.value`` is ``inf`` whenever the
-    # plan touches the boundary of the PSD cone (see the docstring note).
+        plan = cp.Variable((d_a * d_b, d_a * d_b), hermitian=True)
+        constraints = [
+            plan >> 0,
+            cp.partial_trace(plan, (d_a, d_b), axis=1) == rho_a,
+            cp.partial_trace(plan, (d_a, d_b), axis=0) == rho_b,
+        ]
+        transport = cp.real(cp.trace(cost @ plan))
+        entropy = cp.von_neumann_entr(plan)
+        objective = cp.Minimize(transport - epsilon * entropy)
+        problem = cp.Problem(objective, constraints)
+
+        # We request a tight gap (1e-9); CLARABEL may not certify it and can return
+        # status "optimal_inaccurate" (with a UserWarning we leave visible, not
+        # silenced). In practice the returned value is accurate to ~1e-7--1e-8,
+        # confirmed against the entropic->SDP and Amari-bridge regression tests. We
+        # accept that status below.
+        chosen_solver = solver if solver is not None else "CLARABEL"
+        if chosen_solver == "CLARABEL":
+            problem.solve(solver="CLARABEL", tol_gap_abs=1e-9, tol_gap_rel=1e-9)
+        else:
+            problem.solve(solver=chosen_solver)
+        if problem.status not in ("optimal", "optimal_inaccurate"):
+            raise RuntimeError(
+                f"Quantum Sinkhorn SDP did not converge ({problem.status})."
+            )
+        plan_value = np.asarray(plan.value, dtype=complex)
+    # Evaluate the objective on the plan itself: ``problem.value`` is ``inf`` whenever
+    # a solved plan touches the boundary of the PSD cone (see the Notes).
     transport_value = float(np.real(np.trace(cost @ plan_value)))
     entropy_nats = von_neumann_entropy(plan_value, base=np.e)
     return transport_value - float(epsilon) * entropy_nats, plan_value

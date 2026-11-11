@@ -1,3 +1,6 @@
+import warnings
+
+import cvxpy as cp
 import numpy as np
 import pytest
 
@@ -183,32 +186,116 @@ def test_operator_sinkhorn_equals_sdp_in_commuting_case():
 
 
 # ----------------------------- Returned objective value ------------------ #
-# A pure marginal admits exactly one coupling, the product state, so the entropic
-# objective has a closed form. The solver reaches that boundary point only with status
-# "optimal_inaccurate": the measured error on the plan is about 3.5e-4, hence this bound.
-PURE_MARGINAL_OBJECTIVE_ATOL = 2e-3
+# A pure marginal admits exactly one coupling, the product state, so the function
+# returns it in closed form without calling the solver. The bound is the rounding error
+# of a Kronecker product and one eigendecomposition; the solver it replaces was off by
+# 3e-4 to 5e-4 on the qubit pair below and by 2e-2 to 3.5e-2 on the qutrit case.
+PURE_MARGINAL_EXACT_ATOL = 1e-12
+
+
+def _random_ket(rng, dim):
+    """Normalised complex vector of length ``dim``."""
+    ket = rng.normal(size=dim) + 1j * rng.normal(size=dim)
+    return ket / np.linalg.norm(ket)
+
+
+def _random_full_rank_state(rng, dim):
+    """Full-rank density matrix of shape ``(dim, dim)``."""
+    ginibre = rng.normal(size=(dim, dim)) + 1j * rng.normal(size=(dim, dim))
+    wishart = ginibre @ ginibre.conj().T
+    return wishart / np.trace(wishart).real
+
+
+def _random_hermitian(rng, dim):
+    """Hermitian matrix of shape ``(dim, dim)``."""
+    half = rng.normal(size=(dim, dim)) + 1j * rng.normal(size=(dim, dim))
+    return half + half.conj().T
+
+
+def _count_solver_calls(monkeypatch):
+    """Record every call to ``cvxpy.Problem.solve`` and return the list of records."""
+    calls = []
+    original_solve = cp.Problem.solve
+
+    def counting_solve(self, *args, **kwargs):
+        calls.append(kwargs.get("solver"))
+        return original_solve(self, *args, **kwargs)
+
+    monkeypatch.setattr(cp.Problem, "solve", counting_solve)
+    return calls
 
 
 @pytest.mark.parametrize("pure_side", ["a", "b"])
-def test_quantum_sinkhorn_sdp_objective_is_finite_for_a_pure_marginal(pure_side):
+def test_quantum_sinkhorn_sdp_is_exact_for_a_pure_marginal(pure_side):
     """With a pure marginal the returned objective is tr(C rho_A x rho_B) - eps ln 2.
 
-    Regression test: the value used to come back as ``inf`` because the plan sits on the
-    boundary of the PSD cone and the solver returns eigenvalues of order -1e-7 there.
+    Regression test twice over: the value used to come back as ``inf``, then as a number
+    accurate to about 5e-4 only, because the plan sits on the boundary of the PSD cone.
     """
     plus = density_matrix(KET_PLUS)
     mixed = maximally_mixed(2)
     rho_a, rho_b = (plus, mixed) if pure_side == "a" else (mixed, plus)
     C = quadratic_position_cost([0.0, 1.0])
     eps = 0.4
-    value, plan = quantum_sinkhorn_sdp(rho_a, rho_b, C, epsilon=eps)
-    assert np.isfinite(value)
+    with warnings.catch_warnings():
+        # The closed form must not go through the solver, so no accuracy warning either.
+        warnings.simplefilter("error")
+        value, plan = quantum_sinkhorn_sdp(rho_a, rho_b, C, epsilon=eps)
     # Unique coupling = product; tr(C * product) = 1/2 and S(product) = ln 2 nats.
     expected = 0.5 - eps * np.log(2.0)
-    assert value == pytest.approx(expected, abs=PURE_MARGINAL_OBJECTIVE_ATOL)
+    assert value == pytest.approx(expected, abs=PURE_MARGINAL_EXACT_ATOL)
     np.testing.assert_allclose(
-        plan, tensor(rho_a, rho_b), atol=PURE_MARGINAL_OBJECTIVE_ATOL
+        plan, tensor(rho_a, rho_b), atol=PURE_MARGINAL_EXACT_ATOL
     )
+
+
+def test_quantum_sinkhorn_sdp_is_exact_for_a_pure_qutrit_marginal():
+    """Pure qutrit against a full-rank qutrit, generic cost: value = tr(C P) - eps S(rho_B)."""
+    rng = np.random.default_rng(0)
+    rho_a = density_matrix(_random_ket(rng, 3))
+    rho_b = _random_full_rank_state(rng, 3)
+    C = _random_hermitian(rng, 9)
+    eps = 0.3
+    value, plan = quantum_sinkhorn_sdp(rho_a, rho_b, C, epsilon=eps)
+    product = tensor(rho_a, rho_b)
+    # S(rho_A x rho_B) = S(rho_A) + S(rho_B) and S(rho_A) = 0 for a pure state.
+    expected = float(np.real(np.trace(C @ product))) - eps * von_neumann_entropy(
+        rho_b, base=np.e
+    )
+    np.testing.assert_allclose(plan, product, atol=PURE_MARGINAL_EXACT_ATOL)
+    assert value == pytest.approx(expected, abs=PURE_MARGINAL_EXACT_ATOL)
+
+
+def test_quantum_sinkhorn_sdp_is_exact_when_both_marginals_are_pure():
+    """Two pure marginals: the plan is |psi><psi| x |phi><phi| and its entropy is zero."""
+    rng = np.random.default_rng(1)
+    rho_a = density_matrix(_random_ket(rng, 2))
+    rho_b = density_matrix(_random_ket(rng, 2))
+    C = _random_hermitian(rng, 4)
+    value, plan = quantum_sinkhorn_sdp(rho_a, rho_b, C, epsilon=0.7)
+    product = tensor(rho_a, rho_b)
+    np.testing.assert_allclose(plan, product, atol=PURE_MARGINAL_EXACT_ATOL)
+    assert value == pytest.approx(
+        float(np.real(np.trace(C @ product))), abs=PURE_MARGINAL_EXACT_ATOL
+    )
+
+
+def test_quantum_sinkhorn_sdp_skips_the_solver_only_for_a_pure_marginal(monkeypatch):
+    """The closed form is used for a pure marginal and for nothing else.
+
+    A marginal with eigenvalues (1 - 1e-6, 1e-6) is not pure: its couplings are not
+    unique, so the problem still goes to the solver.
+    """
+    calls = _count_solver_calls(monkeypatch)
+    mixed = maximally_mixed(2)
+    C = quadratic_position_cost([0.0, 1.0])
+
+    quantum_sinkhorn_sdp(density_matrix(KET_PLUS), mixed, C, epsilon=0.4)
+    assert len(calls) == 0
+
+    almost_pure = np.diag([1.0 - 1e-6, 1e-6]).astype(complex)
+    quantum_sinkhorn_sdp(almost_pure, mixed, C, epsilon=0.4)
+    assert len(calls) == 1
 
 
 def test_quantum_sinkhorn_sdp_objective_matches_its_plan():
