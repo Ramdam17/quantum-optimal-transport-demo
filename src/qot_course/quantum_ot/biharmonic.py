@@ -15,7 +15,7 @@ harmonic of the phase difference with its own, independent strength:
 For :math:`K_2 = 0` the model is exactly the Kuramoto dyad of
 :func:`qot_course.quantum_ot.capstone.simulate_kuramoto_dyad`, and with the same
 random stream it produces the same trajectories. For :math:`K_2 \\neq 0` the
-stationary law of the phase difference :math:`\\Delta = \\theta_2 - \\theta_1` is
+stationary law of the phase difference :math:`\\Delta = \\theta_1 - \\theta_2` is
 no longer a one-parameter family, so its first and second circular moments can
 move independently.
 
@@ -177,6 +177,9 @@ def simulate_biharmonic_dyad(
             theta_2[:, step - n_burn] = state[1]
         if step == n_burn + n_steps - 1:
             break
+        # This local difference is theta_2 - theta_1, the argument of the coupling
+        # felt by oscillator 1; it is minus the phase difference Delta of the
+        # module docstring and of stationary_moments.
         delta = state[1] - state[0]
         g = k1 * np.sin(delta) + k2 * np.sin(2.0 * delta)
         z = rng.standard_normal((_N_OSCILLATORS, n_records))
@@ -364,9 +367,22 @@ def relative_phase(moments: NDArray[np.complex128]) -> float:
     -----
     When to use: alongside the moduli :math:`|m_1|` and :math:`|m_2|`, which
     together with :math:`\\beta` are the three real numbers on which every
-    shift-invariant measure of the bench depends. In the two-harmonic dyad its
-    sign follows the sign of :math:`K_2`. Moments are as in Gatto & Jammalamadaka
-    (2007), DOI: 10.1016/j.stamet.2006.11.003.
+    shift-invariant measure of the bench depends. Moments are as in Gatto &
+    Jammalamadaka (2007), DOI: 10.1016/j.stamet.2006.11.003.
+
+    In the two-harmonic dyad, :math:`\\beta` neither follows the sign of
+    :math:`K_2` nor grows steadily with it when the natural frequencies differ.
+    The values below were computed with :func:`stationary_moments` at
+    :math:`K_1 = 0.10` and the default frequencies (detuning 0.2 rad/s). At
+    :math:`K_2 = 0` the relative phase is already +0.249 rad, because the
+    detuning skews the density. It is +0.363 rad at :math:`K_2 = +0.05` and
+    -0.329 rad at :math:`K_2 = -0.05`. On a scan of :math:`K_2` over
+    :math:`[-0.15, 0.15]` it changes sign only once, near :math:`K_2 = -0.016`,
+    so it is negative below that value and positive above it. It increases with
+    :math:`K_2` only between about -0.063 and +0.028, where it reaches its
+    extremes of -0.347 and +0.411 rad. Outside that interval it falls back toward
+    zero, to -0.189 rad at :math:`K_2 = -0.15` and +0.061 rad at
+    :math:`K_2 = +0.15`.
 
     Examples
     --------
