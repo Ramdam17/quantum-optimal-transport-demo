@@ -220,3 +220,20 @@ def test_equal_moduli_pair_out_of_reach_is_flagged_not_raised():
     pair = solve_equal_moduli_pair(0.05, 0.15)       # needs |k2| > 0.15
     assert not pair.found and pair.residual > 1e-3
     assert abs(pair.k2) <= 0.15
+
+
+@pytest.mark.parametrize(
+    "solve",
+    [
+        lambda **kw: solve_k1_for_plv(0.3, 0.0, **kw),
+        lambda **kw: solve_equal_moduli_pair(0.05, 0.12, **kw),
+    ],
+    ids=["plv", "equal_moduli"],
+)
+@pytest.mark.parametrize(
+    "keyword, value", [("max_harmonic", 1), ("omega", 1.0)], ids=["max_harmonic", "unknown"]
+)
+def test_matched_solvers_reject_keywords_they_do_not_forward(solve, keyword, value):
+    # With max_harmonic=1 the pair solver would match |m1| alone and report a false pair.
+    with pytest.raises(ValueError, match=keyword):
+        solve(**{keyword: value})

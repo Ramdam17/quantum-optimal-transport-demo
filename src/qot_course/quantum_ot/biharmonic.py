@@ -93,6 +93,10 @@ _N_PAIR_STARTS = 5
 # the reachability of the target rather than by the optimiser, so that a pair
 # within 1e-6 is not reported as missed.
 _PAIR_SOLVER_TOL = 1e-14
+# Keywords of stationary_moments that the matched-settings solvers forward. The
+# harmonic count is excluded on purpose: each solver fixes the one it needs, so a
+# caller cannot make it match fewer moments than it reports (structural).
+_MODEL_KEYWORDS = frozenset({"omega_1", "omega_2", "noise_std", "n_modes"})
 
 
 def simulate_biharmonic_dyad(
@@ -546,6 +550,27 @@ def long_run_joint_density(
     return tensor.reshape(d * d, d * d)
 
 
+def _check_model_keywords(model: dict[str, float]) -> None:
+    """Reject any model keyword the matched-settings solvers do not forward.
+
+    Parameters
+    ----------
+    model : dict of str to float
+        Keyword arguments meant for :func:`stationary_moments`.
+
+    Raises
+    ------
+    ValueError
+        If a keyword is not one of ``omega_1``, ``omega_2``, ``noise_std`` or
+        ``n_modes``; the message names it.
+    """
+    unknown = sorted(set(model) - _MODEL_KEYWORDS)
+    if unknown:
+        raise ValueError(
+            f"unsupported model keyword(s) {unknown}; allowed: {sorted(_MODEL_KEYWORDS)}"
+        )
+
+
 def solve_k1_for_plv(
     target: float,
     k2: float,
@@ -584,9 +609,10 @@ def solve_k1_for_plv(
     Raises
     ------
     ValueError
-        If ``k1_search_max`` is not positive, or if no sign change of
-        :math:`|m_1| - \\text{target}` is found on the scan. The second message
-        names ``target`` and ``k2``.
+        If a keyword of ``model`` is not one of the four listed above (the
+        message names it), if ``k1_search_max`` is not positive, or if no sign
+        change of :math:`|m_1| - \\text{target}` is found on the scan. The last
+        message names ``target`` and ``k2``.
 
     Notes
     -----
@@ -607,11 +633,13 @@ def solve_k1_for_plv(
     >>> round(float(abs(stationary_moments(k1, 0.0)[1])), 6)
     0.3
     """
+    _check_model_keywords(model)
     if k1_search_max <= 0.0:
         raise ValueError(f"k1_search_max must be positive, got {k1_search_max}")
 
     def gap(k1: float) -> float:
-        return float(abs(stationary_moments(k1, k2, **model)[1])) - target
+        moments = stationary_moments(k1, k2, max_harmonic=1, **model)
+        return float(abs(moments[1])) - target
 
     grid = np.linspace(0.0, k1_search_max, _K1_SCAN_POINTS)
     values = np.array([gap(k1) for k1 in grid])
@@ -636,15 +664,17 @@ class EqualModuliPair:
     k1_ref, k2_ref : float
         Reference couplings :math:`(K_1, K_2)` (rad/s).
     k1, k2 : float
-        Partner couplings (rad/s); ``k2`` has the sign opposite to ``k2_ref``.
+        Partner couplings (rad/s); ``k2`` lies between 0 and the bound on the
+        side opposite to ``k2_ref``, and is strictly nonzero when ``found``.
     residual : float
         Larger of :math:`\\bigl||m_1| - |m_1^{\\mathrm{ref}}|\\bigr|` and
         :math:`\\bigl||m_2| - |m_2^{\\mathrm{ref}}|\\bigr|` at the partner,
         dimensionless.
     found : bool
-        True when ``residual`` is within the tolerance asked for; when False
-        the partner is only the closest setting found, and a comparison that
-        assumes equal moduli must not be made with it.
+        True when ``residual`` is within the tolerance asked for and ``k2`` is
+        strictly of the sign opposite to ``k2_ref``; when False the partner is
+        only the closest setting found, and a comparison that assumes equal
+        moduli must not be made with it.
     """
 
     k1_ref: float
@@ -676,7 +706,8 @@ def solve_equal_moduli_pair(
     starting points: the mirror image :math:`(K_1^{\\mathrm{ref}}, -K_2^{\\mathrm{ref}})`
     clipped to the bounds, and five values of :math:`K_2` spread evenly over
     the allowed interval at :math:`K_1 = K_1^{\\mathrm{ref}}`. The start with the
-    smallest residual is kept.
+    smallest residual is kept, the residual being the larger of the two absolute
+    modulus differences.
 
     Parameters
     ----------
@@ -698,14 +729,17 @@ def solve_equal_moduli_pair(
     -------
     pair : EqualModuliPair
         The reference, the best partner found, its residual and whether the
-        residual is within ``tolerance``. A request out of reach is returned
-        with ``found=False``, not raised, and a warning is logged.
+        residual is within ``tolerance`` with a partner :math:`K_2` strictly of
+        the opposite sign. A request out of reach is returned with
+        ``found=False``, not raised, and a warning is logged.
 
     Raises
     ------
     ValueError
-        If ``k2_ref`` is zero (the opposite sign is then undefined), or if
-        ``k2_bound``, ``tolerance`` or ``k1_search_max`` is not positive.
+        If a keyword of ``model`` is not one of the four listed above (the
+        message names it), if ``k2_ref`` is zero (the opposite sign is then
+        undefined), or if ``k2_bound``, ``tolerance`` or ``k1_search_max`` is
+        not positive.
 
     Notes
     -----
@@ -724,6 +758,7 @@ def solve_equal_moduli_pair(
     >>> pair.found, pair.k2 < 0
     (True, True)
     """
+    _check_model_keywords(model)
     if k2_ref == 0.0:
         raise ValueError("k2_ref must be nonzero: the opposite sign is undefined")
     if k2_bound <= 0.0:
@@ -733,10 +768,11 @@ def solve_equal_moduli_pair(
     if k1_search_max <= 0.0:
         raise ValueError(f"k1_search_max must be positive, got {k1_search_max}")
 
-    ref = np.abs(stationary_moments(k1_ref, k2_ref, **model)[1:3])
+    ref = np.abs(stationary_moments(k1_ref, k2_ref, max_harmonic=2, **model)[1:3])
 
     def differences(x: NDArray[np.float64]) -> NDArray[np.float64]:
-        return np.abs(stationary_moments(x[0], x[1], **model)[1:3]) - ref
+        moments = stationary_moments(x[0], x[1], max_harmonic=2, **model)
+        return np.abs(moments[1:3]) - ref
 
     sign = float(np.sign(k2_ref))
     far = -sign * k2_bound
@@ -748,7 +784,7 @@ def solve_equal_moduli_pair(
     starts = [(k1_start, float(np.clip(-k2_ref, lower[1], upper[1])))]
     starts += [(k1_start, float(far * f)) for f in fractions]
 
-    best = None
+    best_x, residual = None, np.inf
     for start in starts:
         fit = least_squares(
             differences,
@@ -758,15 +794,19 @@ def solve_equal_moduli_pair(
             ftol=_PAIR_SOLVER_TOL,
             gtol=_PAIR_SOLVER_TOL,
         )
-        if best is None or fit.cost < best.cost:
-            best = fit
-    k1, k2 = (float(v) for v in best.x)
-    residual = float(np.abs(differences(best.x)).max())
-    found = residual <= tolerance
+        # Select on the quantity `found` is judged on, not on the squared cost.
+        fit_residual = float(np.abs(differences(fit.x)).max())
+        if best_x is None or fit_residual < residual:
+            best_x, residual = fit.x, fit_residual
+    k1, k2 = (float(v) for v in best_x)
+    # The interval for K2 includes 0, so the opposite sign is checked, not assumed.
+    opposite_sign = np.sign(k2) == -sign
+    found = bool(residual <= tolerance and opposite_sign)
     if not found:
         logger.warning(
             "no equal-moduli partner of (k1=%s, k2=%s) with |k2| <= %s: closest is "
-            "(k1=%.6f, k2=%.6f) with residual %.3e > tolerance %.1e",
+            "(k1=%.6f, k2=%.6g) with residual %.3e (tolerance %.1e) and k2 of "
+            "opposite sign: %s",
             k1_ref,
             k2_ref,
             k2_bound,
@@ -774,6 +814,7 @@ def solve_equal_moduli_pair(
             k2,
             residual,
             tolerance,
+            bool(opposite_sign),
         )
     return EqualModuliPair(
         k1_ref=float(k1_ref),
