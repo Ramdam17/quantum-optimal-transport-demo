@@ -449,9 +449,7 @@ def _step_factor_band(
         factor = -2.0 * np.sin(0.5 * phase) ** 2 + 1j * np.sin(phase)
         spectrum = np.fft.fft(factor, axis=1) / grid
         magnitude = np.abs(spectrum)
-        row_size = np.abs(np.expm1(-damping)) + np.exp(-damping) * magnitude.max(
-            axis=1
-        )
+        row_size = np.abs(np.expm1(-damping)) + np.exp(-damping) * magnitude.max(axis=1)
         relative = np.divide(
             magnitude,
             row_size[:, None],

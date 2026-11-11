@@ -2,22 +2,38 @@ import numpy as np
 import pytest
 
 from qot_course.quantum_ot.bench_protocol import (
-    STATISTIC_KEYS_BASE, auc, compare_conditions, detection_rate, harmonic_plv,
-    long_run_statistics, record_statistics, relative_phase_components, signed_score,
+    STATISTIC_KEYS_BASE,
+    auc,
+    compare_conditions,
+    detection_rate,
+    harmonic_plv,
+    long_run_statistics,
+    record_statistics,
+    relative_phase_components,
+    signed_score,
 )
 from qot_course.quantum_ot.biharmonic import (
-    discretised_stationary_moments, simulate_biharmonic_dyad, stationary_moments,
+    discretised_stationary_moments,
+    simulate_biharmonic_dyad,
+    stationary_moments,
 )
 from qot_course.quantum_ot.capstone import plv
 
 WEIGHTS = {"qmi_weighted_02": (1.0, 0.2, 2.0), "qmi_weighted_05": (1.0, 0.5, 2.0)}
-MODEL = {"omega_1": 1.0, "omega_2": 1.2, "noise_std": 0.3, "dt": 0.05, "burn_in": 50.0, "n_modes": 200}
+MODEL = {
+    "omega_1": 1.0,
+    "omega_2": 1.2,
+    "noise_std": 0.3,
+    "dt": 0.05,
+    "burn_in": 50.0,
+    "n_modes": 200,
+}
 
 
 def test_first_harmonic_is_the_course_plv_and_second_sees_antiphase_mixtures():
     rng = np.random.default_rng(0)
     ta = rng.uniform(0, 2 * np.pi, 20_000)
-    tb = ta - rng.choice([0.0, np.pi], 20_000)        # in phase or in antiphase, half each
+    tb = ta - rng.choice([0.0, np.pi], 20_000)  # in phase or in antiphase, half each
     assert harmonic_plv(ta, tb, 1) == pytest.approx(plv(ta, tb))
     assert harmonic_plv(ta, tb, 1) < 0.03
     assert harmonic_plv(ta, tb, 2) == pytest.approx(1.0)
@@ -52,7 +68,9 @@ def test_record_statistics_on_a_record_below_the_first_moment_threshold():
     rec = record_statistics(ta, tb, weight_sets=WEIGHTS)
     assert np.isnan(rec["relphase_sin"]) and np.isnan(rec["relphase_cos"])
     assert all(np.isfinite(v) for k, v in rec.items() if not k.startswith("relphase"))
-    assert rec["plv"] == pytest.approx(0.0, abs=1e-12) and rec["plv2"] == pytest.approx(1.0)
+    assert rec["plv"] == pytest.approx(0.0, abs=1e-12) and rec["plv2"] == pytest.approx(
+        1.0
+    )
 
 
 def test_uncoupled_exact_statistics_are_zero_and_relative_phase_undefined():
@@ -63,8 +81,10 @@ def test_uncoupled_exact_statistics_are_zero_and_relative_phase_undefined():
 
 
 def test_score_keeps_its_sign_and_is_not_folded():
-    null = np.array([-1.0, 1.0, -1.0, 1.0])                    # mean 0, sd(ddof=1) = 1.1547
-    assert signed_score(np.full(4, -2.0), null) == pytest.approx(-2.0 / np.std(null, ddof=1))
+    null = np.array([-1.0, 1.0, -1.0, 1.0])  # mean 0, sd(ddof=1) = 1.1547
+    assert signed_score(np.full(4, -2.0), null) == pytest.approx(
+        -2.0 / np.std(null, ddof=1)
+    )
     assert signed_score(np.array([2.0, -2.0]), null) == pytest.approx(0.0)
 
 
@@ -78,7 +98,7 @@ def test_auc_bounds_ties_and_invariance_under_a_monotone_map():
     assert auc(a, a) == pytest.approx(0.5)
     assert auc(a, b + 1.0) == pytest.approx(1.0)
     assert auc(a, b) == pytest.approx(8 / 9)
-    assert auc(a**2, b**2) == pytest.approx(auc(a, b))          # the score has no such property
+    assert auc(a**2, b**2) == pytest.approx(auc(a, b))  # the score has no such property
     assert np.isnan(auc([np.nan], b))
 
 
@@ -87,31 +107,52 @@ def test_detection_rate_is_two_sided_and_calibrated():
     null = rng.standard_normal(20_000)
     assert 0.04 < detection_rate(rng.standard_normal(20_000), null) < 0.06
     assert detection_rate(null[:100] + 10.0, null) == pytest.approx(1.0)
-    assert detection_rate(null[:100] - 10.0, null) == pytest.approx(1.0)   # lower tail counts
+    assert detection_rate(null[:100] - 10.0, null) == pytest.approx(
+        1.0
+    )  # lower tail counts
 
 
 def test_compare_conditions_rows_and_reproducibility():
-    kw = dict(duration=20.0, n_records=6, seed=5, model=MODEL, weight_sets={"qmi_weighted_02": (1.0, 0.2, 2.0)})
+    kw = dict(
+        duration=20.0,
+        n_records=6,
+        seed=5,
+        model=MODEL,
+        weight_sets={"qmi_weighted_02": (1.0, 0.2, 2.0)},
+    )
     rows = compare_conditions((0.0, 0.0), (0.0, 0.10), **kw)
     assert [r["statistic"] for r in rows] == [
-        "plv", "plv2", "relphase_sin", "relphase_cos", "qmi_naive", "qmi_rich", "bures_rich", "qmi_weighted_02",
+        "plv",
+        "plv2",
+        "relphase_sin",
+        "relphase_cos",
+        "qmi_naive",
+        "qmi_rich",
+        "bures_rich",
+        "qmi_weighted_02",
     ]
     # assert_equal walks lists and dictionaries and treats NaN as equal to NaN.
     np.testing.assert_equal(rows, compare_conditions((0.0, 0.0), (0.0, 0.10), **kw))
     by = {r["statistic"]: r for r in rows}
     assert by["plv2"]["exact_a"] == pytest.approx(0.0, abs=1e-9)
     assert by["plv2"]["exact_b"] == pytest.approx(0.3623, abs=5e-4)
-    assert 0 <= by["relphase_sin"]["n_valid"] <= 6             # may be undefined: no exception
+    assert 0 <= by["relphase_sin"]["n_valid"] <= 6  # may be undefined: no exception
     assert by["plv"]["n_valid"] == 6
 
 
 def test_compare_conditions_separates_a_clear_case():
     rows = compare_conditions(
-        (0.0, 0.0), (0.0, 0.10), duration=800.0, n_records=40, seed=1, model=MODEL, weight_sets={},
+        (0.0, 0.0),
+        (0.0, 0.10),
+        duration=800.0,
+        n_records=40,
+        seed=1,
+        model=MODEL,
+        weight_sets={},
     )
     by = {r["statistic"]: r for r in rows}
     assert by["plv2"]["auc"] > 0.95 and by["plv2"]["score"] > 3.0
-    assert abs(by["plv"]["score"]) < 3.0                       # the first harmonic does not see it
+    assert abs(by["plv"]["score"]) < 3.0  # the first harmonic does not see it
 
 
 def test_detection_rate_is_nan_on_a_constant_null():
@@ -124,8 +165,12 @@ SHORT = dict(duration=20.0, n_records=6, model=MODEL, weight_sets={})
 def test_compare_conditions_accepts_a_seed_sequence_without_consuming_it():
     ss = np.random.SeedSequence(5)
     first = compare_conditions((0.0, 0.0), (0.0, 0.10), seed=ss, **SHORT)
-    np.testing.assert_equal(first, compare_conditions((0.0, 0.0), (0.0, 0.10), seed=ss, **SHORT))
-    np.testing.assert_equal(first, compare_conditions((0.0, 0.0), (0.0, 0.10), seed=5, **SHORT))
+    np.testing.assert_equal(
+        first, compare_conditions((0.0, 0.0), (0.0, 0.10), seed=ss, **SHORT)
+    )
+    np.testing.assert_equal(
+        first, compare_conditions((0.0, 0.0), (0.0, 0.10), seed=5, **SHORT)
+    )
 
 
 def test_compare_conditions_accepts_a_spawned_child_seed():
@@ -146,24 +191,33 @@ def test_compare_conditions_reports_the_number_of_null_differences():
 def test_compare_conditions_carries_the_exact_values_of_the_simulated_scheme():
     rows = compare_conditions((0.3, 0.0), (0.1, 0.1), seed=5, **SHORT)
     by = {r["statistic"]: r for r in rows}
-    assert list(by["plv"])[list(by["plv"]).index("exact_b") + 1 :][:2] == ["exact_discrete_a", "exact_discrete_b"]
+    assert list(by["plv"])[list(by["plv"]).index("exact_b") + 1 :][:2] == [
+        "exact_discrete_a",
+        "exact_discrete_b",
+    ]
     for side, setting in (("a", (0.3, 0.0)), ("b", (0.1, 0.1))):
         discrete = discretised_stationary_moments(*setting, dt=MODEL["dt"])
         continuous = stationary_moments(*setting)
         for key, h in (("plv", 1), ("plv2", 2)):
             predicted = abs(discrete[h]) - abs(continuous[h])
-            assert abs(predicted) > 1e-3                     # a clear step bias
+            assert abs(predicted) > 1e-3  # a clear step bias
             gap = by[key][f"exact_discrete_{side}"] - by[key][f"exact_{side}"]
             assert gap == pytest.approx(predicted, abs=1e-12), (key, side)
         exact = long_run_statistics(discrete, weight_sets={})
-        assert by["qmi_rich"][f"exact_discrete_{side}"] == pytest.approx(exact["qmi_rich"], abs=1e-12)
+        assert by["qmi_rich"][f"exact_discrete_{side}"] == pytest.approx(
+            exact["qmi_rich"], abs=1e-12
+        )
 
 
 def test_exact_discrete_relative_phase_is_undefined_without_first_harmonic():
     rows = compare_conditions((0.0, 0.0), (0.0, 0.10), seed=5, **SHORT)
     by = {r["statistic"]: r for r in rows}
-    assert np.isnan(by["relphase_sin"]["exact_discrete_b"]) and np.isnan(by["relphase_cos"]["exact_discrete_a"])
-    assert by["plv2"]["exact_discrete_b"] == pytest.approx(0.359159, abs=1e-6)   # 0.3623 in continuous time
+    assert np.isnan(by["relphase_sin"]["exact_discrete_b"]) and np.isnan(
+        by["relphase_cos"]["exact_discrete_a"]
+    )
+    assert by["plv2"]["exact_discrete_b"] == pytest.approx(
+        0.359159, abs=1e-6
+    )  # 0.3623 in continuous time
 
 
 def test_detection_band_uses_the_weibull_rule():

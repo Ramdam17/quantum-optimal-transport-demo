@@ -256,7 +256,9 @@ def _json_safe(obj: Any) -> Any:
     return obj
 
 
-def _write_csv(path: Path, fieldnames: Sequence[str], rows: Iterable[Mapping[str, Any]]) -> None:
+def _write_csv(
+    path: Path, fieldnames: Sequence[str], rows: Iterable[Mapping[str, Any]]
+) -> None:
     """Write ``rows`` to ``path`` with a header, undefined numbers as empty cells."""
     with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
@@ -442,7 +444,9 @@ def write_freedom(
                 )
             except ValueError as err:
                 logger.info(
-                    "freedom: bin centre |m1|=%.3f not reached at k2=0 (%s)", centre, err
+                    "freedom: bin centre |m1|=%.3f not reached at k2=0 (%s)",
+                    centre,
+                    err,
                 )
                 at_zero = float("nan")
             rows.append(
@@ -659,7 +663,9 @@ def write_timestep_check(
         ]
         rows = []
         for setting_index, (k1, k2) in enumerate(settings):
-            exact = stationary_moments(k1, k2, max_harmonic=MAX_HARMONIC, **solver_kwargs)
+            exact = stationary_moments(
+                k1, k2, max_harmonic=MAX_HARMONIC, **solver_kwargs
+            )
             for dt_index, dt in enumerate(dt_values):
                 start = time.perf_counter()
                 simulator_kwargs = {**_select(model, SIMULATOR_KEYS), "dt": dt}
@@ -921,7 +927,9 @@ def write_comparisons(
     with _Stage("comparisons", path):
         protocol = section["protocol"]
         durations = [float(d) for d in protocol["durations_s"]]
-        weight_sets = {k: [float(w) for w in v] for k, v in section["weight_sets"].items()}
+        weight_sets = {
+            k: [float(w) for w in v] for k, v in section["weight_sets"].items()
+        }
         n_made = sum(c.condition_b is not None for c in plan)
         n_total = n_made * len(durations) * len(protocol["master_seeds"])
         done = 0
@@ -989,7 +997,8 @@ def write_summary(rows: Sequence[Mapping[str, Any]], out: Path) -> list[dict[str
     ``exact_discrete_b`` do not depend on the seed. ``mean_n_valid`` and
     ``mean_n_null`` are the means over the seeds of ``n_valid`` and ``n_null``;
     ``mean_null_sd_a`` and ``mean_null_sd_b`` are the means over the seeds of
-    the finite values of ``null_sd_a`` and ``null_sd_b``. Undefined everywhere gives an empty cell.
+    the finite values of ``null_sd_a`` and ``null_sd_b``. Undefined everywhere
+    gives an empty cell.
 
     Parameters
     ----------
@@ -1038,8 +1047,12 @@ def write_summary(rows: Sequence[Mapping[str, Any]], out: Path) -> list[dict[str
             out_row["exact_discrete_b"] = group[0]["exact_discrete_b"]
             out_row["mean_n_valid"] = float(np.mean([r["n_valid"] for r in group]))
             out_row["mean_n_null"] = float(np.mean([r["n_null"] for r in group]))
-            out_row["mean_null_sd_a"] = _finite_summary([r["null_sd_a"] for r in group])[0]
-            out_row["mean_null_sd_b"] = _finite_summary([r["null_sd_b"] for r in group])[0]
+            out_row["mean_null_sd_a"] = _finite_summary(
+                [r["null_sd_a"] for r in group]
+            )[0]
+            out_row["mean_null_sd_b"] = _finite_summary(
+                [r["null_sd_b"] for r in group]
+            )[0]
             summary.append(out_row)
         fieldnames = list(summary[0]) if summary else ["experiment"]
         _write_csv(path, fieldnames, summary)
@@ -1105,7 +1118,9 @@ def write_reliability(
                     "shortest_reliable_duration_s": shortest,
                     "reliability_threshold": threshold,
                     "threshold_is_a_convention": True,
-                    "mean_n_valid": at_shortest["mean_n_valid"] if at_shortest else None,
+                    "mean_n_valid": at_shortest["mean_n_valid"]
+                    if at_shortest
+                    else None,
                     "mean_n_null": at_shortest["mean_n_null"] if at_shortest else None,
                 }
             )
@@ -1213,7 +1228,11 @@ def write_metadata(
                 for c in plan
             ],
             "comparisons_not_made": [
-                {"experiment": c.experiment, "label": c.label, "reason": c.not_made_reason}
+                {
+                    "experiment": c.experiment,
+                    "label": c.label,
+                    "reason": c.not_made_reason,
+                }
                 for c in plan
                 if c.condition_b is None
             ],
@@ -1298,7 +1317,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     quick_overrides = section.pop("quick", None)
     if args.quick:
         if quick_overrides is None:
-            raise ValueError(f"--quick given but {args.config} has no '{CONFIG_SECTION}.quick'")
+            raise ValueError(
+                f"--quick given but {args.config} has no '{CONFIG_SECTION}.quick'"
+            )
         section = deep_merge(section, quick_overrides)
     timestep_seed = int(full_config["seed"])
     model = _model_mapping(section)

@@ -32,8 +32,14 @@ def test_reduces_to_the_course_dyad_when_k2_is_zero():
     # Same start (both phases at zero), no discard, one record: the course's simulator.
     t1, t2 = simulate_kuramoto_dyad(K=0.4, duration=20.0, dt=0.05, seed=3)
     s1, s2 = simulate_biharmonic_dyad(
-        0.4, 0.0, n_records=1, duration=20.0, dt=0.05,
-        burn_in=0.0, random_initial_phases=False, seed=3,
+        0.4,
+        0.0,
+        n_records=1,
+        duration=20.0,
+        dt=0.05,
+        burn_in=0.0,
+        random_initial_phases=False,
+        seed=3,
     )
     np.testing.assert_allclose(s1[0], t1, rtol=0.0, atol=1e-12)
     np.testing.assert_allclose(s2[0], t2, rtol=0.0, atol=1e-12)
@@ -42,7 +48,7 @@ def test_reduces_to_the_course_dyad_when_k2_is_zero():
 def test_records_are_independent_and_start_spread_out():
     t1, _ = simulate_biharmonic_dyad(0.0, 0.0, n_records=400, duration=1.0, seed=0)
     start = np.exp(1j * t1[:, 0])
-    assert abs(start.mean()) < 0.15          # uniform start, not all at zero
+    assert abs(start.mean()) < 0.15  # uniform start, not all at zero
     assert np.unique(t1[:, 0]).size == 400
 
 
@@ -54,9 +60,15 @@ def test_seed_sequence_is_accepted():
 
 @pytest.mark.parametrize(
     "kwargs, name",
-    [({"dt": 0.0}, "dt"), ({"duration": -1.0}, "duration"), ({"n_records": 0}, "n_records"),
-     ({"noise_std": -0.1}, "noise_std"), ({"noise_std": 0.0}, "noise_std"), ({"burn_in": -1.0}, "burn_in"),
-     ({"duration": 0.05}, "duration")],   # fewer than two samples
+    [
+        ({"dt": 0.0}, "dt"),
+        ({"duration": -1.0}, "duration"),
+        ({"n_records": 0}, "n_records"),
+        ({"noise_std": -0.1}, "noise_std"),
+        ({"noise_std": 0.0}, "noise_std"),
+        ({"burn_in": -1.0}, "burn_in"),
+        ({"duration": 0.05}, "duration"),
+    ],  # fewer than two samples
 )
 def test_invalid_arguments_name_the_offender(kwargs, name):
     with pytest.raises(ValueError, match=name):
@@ -84,9 +96,9 @@ def test_generalized_von_mises_without_detuning(k1, k2):
 
 
 def test_pure_second_harmonic_hides_from_the_first_moment_even_with_detuning():
-    m = stationary_moments(0.0, 0.10)            # default detuning 0.2 rad/s
+    m = stationary_moments(0.0, 0.10)  # default detuning 0.2 rad/s
     assert abs(m[1]) < 1e-10
-    assert abs(m[2]) == pytest.approx(0.3623, abs=5e-4)   # value found by the trial
+    assert abs(m[2]) == pytest.approx(0.3623, abs=5e-4)  # value found by the trial
 
 
 def test_uncoupled_pair_has_no_moment():
@@ -97,7 +109,8 @@ def test_uncoupled_pair_has_no_moment():
 def test_truncation_has_converged_in_the_bench_range():
     for k1, k2 in [(0.5, 0.5), (0.5, -0.5), (0.3, 0.0)]:
         np.testing.assert_allclose(
-            stationary_moments(k1, k2, n_modes=200), stationary_moments(k1, k2, n_modes=400),
+            stationary_moments(k1, k2, n_modes=200),
+            stationary_moments(k1, k2, n_modes=400),
             atol=1e-10,
         )
 
@@ -117,8 +130,12 @@ def test_agrees_with_a_long_simulation():
 
 
 def test_relative_phase_at_opposite_second_harmonics():
-    assert relative_phase(stationary_moments(0.10, 0.05)) == pytest.approx(0.363, abs=5e-3)
-    assert relative_phase(stationary_moments(0.10, -0.05)) == pytest.approx(-0.329, abs=5e-3)
+    assert relative_phase(stationary_moments(0.10, 0.05)) == pytest.approx(
+        0.363, abs=5e-3
+    )
+    assert relative_phase(stationary_moments(0.10, -0.05)) == pytest.approx(
+        -0.329, abs=5e-3
+    )
     assert np.isnan(relative_phase(stationary_moments(0.0, 0.1)))
 
 
@@ -129,8 +146,12 @@ def test_zero_noise_is_rejected():
 
 @pytest.mark.parametrize(
     "kwargs, name",
-    [({"noise_std": -0.1}, "noise_std"), ({"n_modes": 0}, "n_modes"), ({"n_modes": 3}, "n_modes"),
-     ({"max_harmonic": -1}, "max_harmonic")],
+    [
+        ({"noise_std": -0.1}, "noise_std"),
+        ({"n_modes": 0}, "n_modes"),
+        ({"n_modes": 3}, "n_modes"),
+        ({"max_harmonic": -1}, "max_harmonic"),
+    ],
 )
 def test_invalid_moment_arguments_name_the_offender(kwargs, name):
     with pytest.raises(ValueError, match=name):
@@ -156,12 +177,15 @@ def test_matches_the_empirical_density_of_a_long_record(weights):
     d = ta - tb
     m = np.array([1.0, np.exp(1j * d).mean(), np.exp(2j * d).mean()])
     emp = joint_density_from_states(
-        weighted_multifreq_state(ta, weights=weights), weighted_multifreq_state(tb, weights=weights)
+        weighted_multifreq_state(ta, weights=weights),
+        weighted_multifreq_state(tb, weights=weights),
     )
     model = long_run_joint_density(m, weights=weights)
     surviving = np.abs(model) > 0
-    np.testing.assert_allclose(emp[surviving], model[surviving], atol=1e-10)   # exact up to rounding
-    assert np.abs(emp[~surviving]).max() < 0.01                                # sampling noise only
+    np.testing.assert_allclose(
+        emp[surviving], model[surviving], atol=1e-10
+    )  # exact up to rounding
+    assert np.abs(emp[~surviving]).max() < 0.01  # sampling noise only
 
 
 def test_is_a_density_and_gives_zero_information_when_uncoupled():
@@ -175,13 +199,18 @@ def test_is_a_density_and_gives_zero_information_when_uncoupled():
 def test_qubit_case_carries_the_first_moment_only():
     rho = long_run_joint_density(np.array([1.0, 0.4 + 0.1j]), harmonics=(1,))
     assert rho.shape == (4, 4)
-    assert rho[2, 1] == pytest.approx((0.4 + 0.1j) / 4)   # |1>_A|0>_B against |0>_A|1>_B
+    assert rho[2, 1] == pytest.approx((0.4 + 0.1j) / 4)  # |1>_A|0>_B against |0>_A|1>_B
 
 
 def test_information_depends_on_the_relative_phase():
-    q = [coupling_qmi(long_run_joint_density(np.array([1.0, 0.3, 0.3 * np.exp(1j * b)])), dims=(3, 3))
-         for b in (0.0, np.pi)]
-    assert q[0] == pytest.approx(0.0484, abs=2e-4)   # values found on 2026-11-11
+    q = [
+        coupling_qmi(
+            long_run_joint_density(np.array([1.0, 0.3, 0.3 * np.exp(1j * b)])),
+            dims=(3, 3),
+        )
+        for b in (0.0, np.pi)
+    ]
+    assert q[0] == pytest.approx(0.0484, abs=2e-4)  # values found on 2026-11-11
     assert q[1] == pytest.approx(0.0554, abs=2e-4)
 
 
@@ -190,7 +219,9 @@ def test_too_few_moments_is_rejected():
         long_run_joint_density(np.array([1.0, 0.3]))
 
 
-@pytest.mark.parametrize("target, k2", [(0.3, 0.0), (0.3, -0.10), (0.6, -0.15), (0.6, 0.04)])
+@pytest.mark.parametrize(
+    "target, k2", [(0.3, 0.0), (0.3, -0.10), (0.6, -0.15), (0.6, 0.04)]
+)
 def test_matched_phase_locking_value(target, k2):
     k1 = solve_k1_for_plv(target, k2)
     assert abs(stationary_moments(k1, k2)[1]) == pytest.approx(target, abs=1e-6)
@@ -199,7 +230,7 @@ def test_matched_phase_locking_value(target, k2):
 def test_matched_settings_differ_in_the_second_moment():
     a = stationary_moments(solve_k1_for_plv(0.3, 0.0), 0.0)
     b = stationary_moments(solve_k1_for_plv(0.3, -0.10), -0.10)
-    assert abs(a[2]) == pytest.approx(0.0712, abs=5e-4)   # values found by the trial
+    assert abs(a[2]) == pytest.approx(0.0712, abs=5e-4)  # values found by the trial
     assert abs(b[2]) == pytest.approx(0.3681, abs=5e-4)
 
 
@@ -214,11 +245,13 @@ def test_equal_moduli_pair_is_found_within_the_bound():
     assert pair.k2 < 0 and abs(pair.k2) <= 0.15
     ref, other = stationary_moments(0.05, 0.12), stationary_moments(pair.k1, pair.k2)
     np.testing.assert_allclose(np.abs(other[1:]), np.abs(ref[1:]), atol=1e-6)
-    assert relative_phase(ref) - relative_phase(other) > 0.5      # about +0.18 against -0.46
+    assert (
+        relative_phase(ref) - relative_phase(other) > 0.5
+    )  # about +0.18 against -0.46
 
 
 def test_equal_moduli_pair_out_of_reach_is_flagged_not_raised():
-    pair = solve_equal_moduli_pair(0.05, 0.15)       # needs |k2| > 0.15
+    pair = solve_equal_moduli_pair(0.05, 0.15)  # needs |k2| > 0.15
     assert not pair.found and pair.residual > 1e-3
     assert abs(pair.k2) <= 0.15
 
@@ -232,7 +265,9 @@ def test_equal_moduli_pair_out_of_reach_is_flagged_not_raised():
     ids=["plv", "equal_moduli"],
 )
 @pytest.mark.parametrize(
-    "keyword, value", [("max_harmonic", 1), ("omega", 1.0)], ids=["max_harmonic", "unknown"]
+    "keyword, value",
+    [("max_harmonic", 1), ("omega", 1.0)],
+    ids=["max_harmonic", "unknown"],
 )
 def test_matched_solvers_reject_keywords_they_do_not_forward(solve, keyword, value):
     # With max_harmonic=1 the pair solver would match |m1| alone and report a false pair.
@@ -247,7 +282,9 @@ def test_matched_solvers_reject_keywords_they_do_not_forward(solve, keyword, val
 BENCH_SETTINGS = [(0.3, 0.0), (0.1, 0.1), (0.0, 0.1), (0.06, -0.10)]
 
 
-@pytest.mark.parametrize("k1, k2", [(0.3, 0.0), (0.1, 0.1), (0.0, 0.1), (0.06, -0.10), (0.0, 0.3)])
+@pytest.mark.parametrize(
+    "k1, k2", [(0.3, 0.0), (0.1, 0.1), (0.0, 0.1), (0.06, -0.10), (0.0, 0.3)]
+)
 def test_discretised_moments_tend_to_the_continuous_ones_at_a_small_step(k1, k2):
     # The step bias is first order in dt. At dt = 0.05 the largest component gap to the
     # continuous-time moments over these settings is 5.5e-3 (trap setting), so at dt = 1e-4,
@@ -261,8 +298,11 @@ def test_discretised_moments_tend_to_the_continuous_ones_at_a_small_step(k1, k2)
 
 def test_discretised_moments_converge_at_first_order_in_the_step():
     continuous = stationary_moments(0.3, 0.0)
-    gaps = [abs(discretised_stationary_moments(0.3, 0.0, dt=dt)[2] - continuous[2]) for dt in (0.05, 0.025)]
-    assert gaps[1] > 1e-4                       # far above rounding
+    gaps = [
+        abs(discretised_stationary_moments(0.3, 0.0, dt=dt)[2] - continuous[2])
+        for dt in (0.05, 0.025)
+    ]
+    assert gaps[1] > 1e-4  # far above rounding
     assert gaps[0] / gaps[1] == pytest.approx(2.0, abs=0.1)
 
 
@@ -295,7 +335,9 @@ def test_discretised_moments_describe_the_simulated_scheme_not_the_model():
     # 256 records of 2,000 s. The circle chain has a stationary law at any step, and with
     # K1 = 0.3 the locked state contracts by a factor of about 0.7 per step.
     k1, k2, dt = 0.3, 0.0, 0.5
-    t1, t2 = simulate_biharmonic_dyad(k1, k2, n_records=256, duration=2000.0, dt=dt, burn_in=100.0, seed=4)
+    t1, t2 = simulate_biharmonic_dyad(
+        k1, k2, n_records=256, duration=2000.0, dt=dt, burn_in=100.0, seed=4
+    )
     delta = t1 - t2
     discrete = discretised_stationary_moments(k1, k2, dt=dt)
     continuous = stationary_moments(k1, k2)
@@ -310,16 +352,20 @@ def test_discretised_truncation_has_converged_in_the_bench_range(k1, k2):
     np.testing.assert_allclose(
         discretised_stationary_moments(k1, k2, dt=0.05, n_modes=200),
         discretised_stationary_moments(k1, k2, dt=0.05, n_modes=400),
-        rtol=0.0, atol=1e-10,
+        rtol=0.0,
+        atol=1e-10,
     )
 
 
 @pytest.mark.parametrize(
-    "setting, expected_gap", zip(BENCH_SETTINGS, (-0.00356, -0.00382, -0.00316, -0.00349)),
+    "setting, expected_gap",
+    zip(BENCH_SETTINGS, (-0.00356, -0.00382, -0.00316, -0.00349)),
 )
 def test_step_bias_of_the_second_moment_at_the_bench_step(setting, expected_gap):
     # Gaps predicted by the final review of the bench, rounded to five decimals.
-    gap = abs(discretised_stationary_moments(*setting, dt=0.05)[2]) - abs(stationary_moments(*setting)[2])
+    gap = abs(discretised_stationary_moments(*setting, dt=0.05)[2]) - abs(
+        stationary_moments(*setting)[2]
+    )
     assert gap == pytest.approx(expected_gap, abs=2e-5)
 
 
@@ -337,11 +383,20 @@ def test_a_step_factor_beyond_the_largest_grid_raises_before_allocating():
 
 @pytest.mark.parametrize(
     "kwargs, name",
-    [({"dt": 0.0}, "dt"), ({"dt": -0.05}, "dt"), ({"dt": np.inf}, "dt"), ({"dt": np.nan}, "dt"),
-     ({"noise_std": 0.0}, "noise_std"), ({"noise_std": np.nan}, "noise_std"),
-     ({"omega_1": np.inf}, "omega_1"), ({"omega_2": np.nan}, "omega_2"),
-     ({"k1": np.nan}, "k1"), ({"k2": np.inf}, "k2"),
-     ({"max_harmonic": -1}, "max_harmonic"), ({"n_modes": 3}, "n_modes")],
+    [
+        ({"dt": 0.0}, "dt"),
+        ({"dt": -0.05}, "dt"),
+        ({"dt": np.inf}, "dt"),
+        ({"dt": np.nan}, "dt"),
+        ({"noise_std": 0.0}, "noise_std"),
+        ({"noise_std": np.nan}, "noise_std"),
+        ({"omega_1": np.inf}, "omega_1"),
+        ({"omega_2": np.nan}, "omega_2"),
+        ({"k1": np.nan}, "k1"),
+        ({"k2": np.inf}, "k2"),
+        ({"max_harmonic": -1}, "max_harmonic"),
+        ({"n_modes": 3}, "n_modes"),
+    ],
 )
 def test_invalid_discretised_arguments_name_the_offender(kwargs, name):
     args = {"k1": 0.1, "k2": 0.1, "dt": 0.05}
@@ -365,7 +420,9 @@ def test_discretised_moments_keep_the_layout_of_the_continuous_ones():
 @pytest.mark.parametrize("target, k2", [(0.3, 0.0), (0.3, -0.10), (0.6, 0.04)])
 def test_matched_phase_locking_value_on_the_discretised_scheme(target, k2):
     k1 = solve_k1_for_plv(target, k2, dt=0.05)
-    assert abs(discretised_stationary_moments(k1, k2, dt=0.05)[1]) == pytest.approx(target, abs=1e-6)
+    assert abs(discretised_stationary_moments(k1, k2, dt=0.05)[1]) == pytest.approx(
+        target, abs=1e-6
+    )
     k1_continuous = solve_k1_for_plv(target, k2)
     assert 1e-5 < abs(k1 - k1_continuous) < 0.02
 
@@ -383,7 +440,10 @@ def test_equal_moduli_pair_on_the_discretised_scheme():
 
 @pytest.mark.parametrize(
     "solve",
-    [lambda: solve_k1_for_plv(0.3, 0.0, dt=0.0), lambda: solve_equal_moduli_pair(0.05, 0.12, dt=-0.1)],
+    [
+        lambda: solve_k1_for_plv(0.3, 0.0, dt=0.0),
+        lambda: solve_equal_moduli_pair(0.05, 0.12, dt=-0.1),
+    ],
     ids=["plv", "equal_moduli"],
 )
 def test_matched_solvers_reject_a_non_positive_step(solve):

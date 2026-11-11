@@ -24,15 +24,38 @@ def quick_run(tmp_path_factory):
 
 
 def test_quick_run_writes_every_result_file(quick_run):
-    for name in ("map.csv", "freedom.csv", "continuity.json", "timestep_check.csv", "comparisons.csv",
-                 "summary.csv", "reliability.csv", "run_metadata.json"):
+    for name in (
+        "map.csv",
+        "freedom.csv",
+        "continuity.json",
+        "timestep_check.csv",
+        "comparisons.csv",
+        "summary.csv",
+        "reliability.csv",
+        "run_metadata.json",
+    ):
         assert (quick_run / name).stat().st_size > 0, name
     assert len(_rows(quick_run / "map.csv")) == 4 * 5
     comp = _rows(quick_run / "comparisons.csv")
-    assert {r["experiment"] for r in comp} == {"detection", "equal_plv", "equal_moduli", "trap"}
-    assert {r["statistic"] for r in comp} >= {"plv", "plv2", "qmi_rich", "bures_rich", "qmi_weighted_02", "qmi_weighted_05"}
+    assert {r["experiment"] for r in comp} == {
+        "detection",
+        "equal_plv",
+        "equal_moduli",
+        "trap",
+    }
+    assert {r["statistic"] for r in comp} >= {
+        "plv",
+        "plv2",
+        "qmi_rich",
+        "bures_rich",
+        "qmi_weighted_02",
+        "qmi_weighted_05",
+    }
     meta = json.loads((quick_run / "run_metadata.json").read_text())
-    assert meta["config"]["protocol"]["n_records"] == 6 and meta["comparisons_not_made"] == []
+    assert (
+        meta["config"]["protocol"]["n_records"] == 6
+        and meta["comparisons_not_made"] == []
+    )
     cont = json.loads((quick_run / "continuity.json").read_text())
     assert cont["spearman_abs_m1_abs_m2"] == 1.0
     assert cont["ranks_identical_abs_m1_abs_m2"] is True
@@ -41,13 +64,17 @@ def test_quick_run_writes_every_result_file(quick_run):
 
 def test_an_unreachable_equal_moduli_pair_is_reported_not_hidden(tmp_path):
     cfg = tmp_path / "c.yaml"
-    base = (__import__("pathlib").Path(__file__).parents[1] / "config" / "base.yaml").read_text()
+    base = (
+        __import__("pathlib").Path(__file__).parents[1] / "config" / "base.yaml"
+    ).read_text()
     cfg.write_text(base.replace("k2_ref: 0.12", "k2_ref: 0.15"))
     assert main(["--quick", "--config", str(cfg), "--out", str(tmp_path / "out")]) == 0
     meta = json.loads((tmp_path / "out" / "run_metadata.json").read_text())
     assert meta["comparisons_not_made"][0]["experiment"] == "equal_moduli"
     assert "closest" in meta["comparisons_not_made"][0]["reason"]
-    assert "equal_moduli" not in {r["experiment"] for r in _rows(tmp_path / "out" / "comparisons.csv")}
+    assert "equal_moduli" not in {
+        r["experiment"] for r in _rows(tmp_path / "out" / "comparisons.csv")
+    }
 
 
 def test_standard_error_of_the_modulus_projects_on_the_mean_direction():
@@ -75,9 +102,15 @@ def test_a_timestep_check_with_one_record_is_rejected_by_name(tmp_path):
     import pytest
 
     cfg = tmp_path / "c.yaml"
-    base = (__import__("pathlib").Path(__file__).parents[1] / "config" / "base.yaml").read_text()
-    cfg.write_text(base.replace("timestep_check: {duration_s: 40.0, n_records: 4}",
-                                "timestep_check: {duration_s: 40.0, n_records: 1}"))
+    base = (
+        __import__("pathlib").Path(__file__).parents[1] / "config" / "base.yaml"
+    ).read_text()
+    cfg.write_text(
+        base.replace(
+            "timestep_check: {duration_s: 40.0, n_records: 4}",
+            "timestep_check: {duration_s: 40.0, n_records: 1}",
+        )
+    )
     with pytest.raises(ValueError, match="timestep_check.n_records"):
         main(["--quick", "--config", str(cfg), "--out", str(tmp_path / "out")])
 
@@ -109,8 +142,10 @@ def test_reliability_reports_the_record_counts_at_the_shortest_duration(quick_ru
             continue
         reported += 1
         match = [
-            s for s in summary
-            if (s["experiment"], s["label"], s["statistic"]) == (row["experiment"], row["label"], row["statistic"])
+            s
+            for s in summary
+            if (s["experiment"], s["label"], s["statistic"])
+            == (row["experiment"], row["label"], row["statistic"])
             and float(s["duration_s"]) == float(row["shortest_reliable_duration_s"])
         ]
         assert len(match) == 1
@@ -125,12 +160,15 @@ def test_summary_averages_the_null_standard_deviations_over_seeds(quick_run):
     assert list(summary[0])[-2:] == ["mean_null_sd_a", "mean_null_sd_b"]
     row = next(r for r in summary if r["mean_null_sd_a"] != "")
     group = [
-        c for c in comparisons
+        c
+        for c in comparisons
         if (c["experiment"], c["label"], c["duration_s"], c["statistic"])
         == (row["experiment"], row["label"], row["duration_s"], row["statistic"])
     ]
     for side in ("a", "b"):
-        values = [float(c[f"null_sd_{side}"]) for c in group if c[f"null_sd_{side}"] != ""]
+        values = [
+            float(c[f"null_sd_{side}"]) for c in group if c[f"null_sd_{side}"] != ""
+        ]
         expected = sum(values) / len(values) if values else None
         cell = row[f"mean_null_sd_{side}"]
         if expected is None:
@@ -148,10 +186,17 @@ def test_comparisons_and_summary_carry_the_exact_values_of_the_scheme(quick_run)
     for name in ("comparisons.csv", "summary.csv"):
         with (quick_run / name).open() as fh:
             header = next(csv.reader(fh))
-        assert _after(header, "exact_b", 2) == ["exact_discrete_a", "exact_discrete_b"], name
+        assert _after(header, "exact_b", 2) == [
+            "exact_discrete_a",
+            "exact_discrete_b",
+        ], name
     summary = _rows(quick_run / "summary.csv")
-    trap = next(r for r in summary if r["experiment"] == "trap" and r["statistic"] == "plv2")
-    assert float(trap["exact_discrete_b"]) == pytest.approx(0.796789, abs=1e-6)   # 0.8018 in continuous time
+    trap = next(
+        r for r in summary if r["experiment"] == "trap" and r["statistic"] == "plv2"
+    )
+    assert float(trap["exact_discrete_b"]) == pytest.approx(
+        0.796789, abs=1e-6
+    )  # 0.8018 in continuous time
     assert float(trap["exact_b"]) - float(trap["exact_discrete_b"]) > 4e-3
 
 
@@ -163,7 +208,10 @@ def test_matched_pairs_are_solved_on_the_simulated_scheme(quick_run):
     solved = {s["experiment"]: s for s in reversed(meta["solved_settings"])}
     for entry in meta["solved_settings"]:
         if entry["experiment"] in ("equal_plv", "equal_moduli"):
-            assert entry["matched_on"] == "discretised scheme" and entry["matched_dt"] == dt
+            assert (
+                entry["matched_on"] == "discretised scheme"
+                and entry["matched_dt"] == dt
+            )
         else:
             assert "matched_on" not in entry and "matched_dt" not in entry
     plv = solved["equal_plv"]
@@ -183,14 +231,35 @@ def test_timestep_check_reports_the_gap_to_the_scheme(quick_run):
     with (quick_run / "timestep_check.csv").open() as fh:
         header = next(csv.reader(fh))
     assert header == [
-        "k1", "k2", "dt", "n_records",
-        "abs_m1_exact", "abs_m1_sim", "abs_m1_se", "abs_m1_gap_se", "abs_m1_exact_discrete", "abs_m1_gap_discrete_se",
-        "abs_m2_exact", "abs_m2_sim", "abs_m2_se", "abs_m2_gap_se", "abs_m2_exact_discrete", "abs_m2_gap_discrete_se",
+        "k1",
+        "k2",
+        "dt",
+        "n_records",
+        "abs_m1_exact",
+        "abs_m1_sim",
+        "abs_m1_se",
+        "abs_m1_gap_se",
+        "abs_m1_exact_discrete",
+        "abs_m1_gap_discrete_se",
+        "abs_m2_exact",
+        "abs_m2_sim",
+        "abs_m2_se",
+        "abs_m2_gap_se",
+        "abs_m2_exact_discrete",
+        "abs_m2_gap_discrete_se",
     ]
     for row in _rows(quick_run / "timestep_check.csv"):
-        m = discretised_stationary_moments(float(row["k1"]), float(row["k2"]), dt=float(row["dt"]))
+        m = discretised_stationary_moments(
+            float(row["k1"]), float(row["k2"]), dt=float(row["dt"])
+        )
         for h in (1, 2):
-            assert float(row[f"abs_m{h}_exact_discrete"]) == pytest.approx(abs(m[h]), abs=1e-12)
+            assert float(row[f"abs_m{h}_exact_discrete"]) == pytest.approx(
+                abs(m[h]), abs=1e-12
+            )
             if row[f"abs_m{h}_se"] not in ("", "0.0"):
-                gap = (float(row[f"abs_m{h}_sim"]) - abs(m[h])) / float(row[f"abs_m{h}_se"])
-                assert float(row[f"abs_m{h}_gap_discrete_se"]) == pytest.approx(gap, rel=1e-9)
+                gap = (float(row[f"abs_m{h}_sim"]) - abs(m[h])) / float(
+                    row[f"abs_m{h}_se"]
+                )
+                assert float(row[f"abs_m{h}_gap_discrete_se"]) == pytest.approx(
+                    gap, rel=1e-9
+                )
