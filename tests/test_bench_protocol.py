@@ -165,3 +165,23 @@ def test_exact_discrete_relative_phase_is_undefined_without_first_harmonic():
     assert np.isnan(by["relphase_sin"]["exact_discrete_b"]) and np.isnan(by["relphase_cos"]["exact_discrete_a"])
     assert by["plv2"]["exact_discrete_b"] == pytest.approx(0.359159, abs=1e-6)   # 0.3623 in continuous time
 
+
+def test_detection_band_uses_the_weibull_rule():
+    # Null 1, 2, ..., 39 (n = 39) at a false-alarm rate of 0.05, quantiles p = 0.025 and 0.975.
+    # Weibull rule: the i-th smallest value sits at p = i / (n + 1) = i / 40, so p = 0.025 is the
+    # 1st value (1.0) and p = 0.975 the 39th (39.0): the band is [1, 39].
+    # Linear rule (numpy's default): position (n - 1) p = 38 * 0.025 = 0.95 from the smallest,
+    # so the band is [1.95, 38.05]. The differences 1.5 and 38.5 are outside the linear band and
+    # inside the Weibull band, so the rate is 0 under the Weibull rule and would be 1 under the linear one.
+    null = np.arange(1.0, 40.0)
+    assert detection_rate([1.5, 38.5], null) == 0.0
+    assert detection_rate([0.5, 39.5], null) == 1.0
+
+
+def test_detection_band_is_the_sample_range_when_the_quantiles_fall_outside_it():
+    # n = 10: the Weibull positions are 0.025 * 11 = 0.275 and 0.975 * 11 = 10.725, outside
+    # [1, 10], so numpy clips them to the smallest and largest values and the band is [0, 9].
+    # (The linear rule would give [0.225, 8.775] and flag the four values below.)
+    null = np.arange(10.0)
+    assert detection_rate([0.1, 0.2, 8.8, 8.9], null) == 0.0
+    assert detection_rate([-0.1, 9.1], null) == 1.0
