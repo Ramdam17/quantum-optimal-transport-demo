@@ -41,6 +41,7 @@ from numpy.typing import ArrayLike, NDArray
 from scipy.stats import rankdata
 
 from qot_course.quantum_ot.biharmonic import (
+    discretised_stationary_moments,
     long_run_joint_density,
     simulate_biharmonic_dyad,
     stationary_moments,
@@ -91,8 +92,9 @@ _MIN_FINITE_VALUES = 2
 # Number of independent record sets drawn by compare_conditions, in the order
 # A, B, A', A'', B', B'' (structural, fixed by the bench design).
 _N_RECORD_SETS = 6
-# Keys of the model mapping of compare_conditions, and the subset forwarded to the
-# simulator and to stationary_moments (structural).
+# Keys of the model mapping of compare_conditions, and the subsets forwarded to the
+# simulator and to stationary_moments; discretised_stationary_moments receives the
+# moment keys and the step dt (structural).
 _MODEL_KEYS = ("omega_1", "omega_2", "noise_std", "dt", "burn_in", "n_modes")
 _SIMULATOR_KEYS = ("omega_1", "omega_2", "noise_std", "dt", "burn_in")
 _MOMENT_KEYS = ("omega_1", "omega_2", "noise_std", "n_modes")
@@ -321,7 +323,8 @@ def long_run_statistics(
     moments : ndarray of complex, shape (K,) with K >= 3
         Circular moments of the phase difference, entry ``k`` equal to
         :math:`E[e^{ik\\Delta}]` with :math:`\\Delta = \\theta_1 - \\theta_2`, as
-        returned by :func:`qot_course.quantum_ot.biharmonic.stationary_moments`.
+        returned by :func:`qot_course.quantum_ot.biharmonic.stationary_moments`
+        or :func:`qot_course.quantum_ot.biharmonic.discretised_stationary_moments`.
     weight_sets : mapping of str to sequence of float
         As in :func:`record_statistics`.
     min_first_moment : float, default 0.05
@@ -346,16 +349,24 @@ def long_run_statistics(
     -----
     When to use: to put the value a statistic tends to on long records beside
     its distribution over finite records, which separates sampling scatter from
-    a genuine difference between two settings. The values are long-run limits
-    of the continuous-time model: they hold under the assumptions of
-    :func:`qot_course.quantum_ot.biharmonic.long_run_joint_density`. A
-    simulated record departs from them in two ways. A finite record carries a
-    sampling bias, which is positive for the two moduli, because the modulus of
-    an average is on average larger than the modulus of its expectation; its
-    sign for the information measures and for the Bures distance is not
-    established here and is read from the results. The Euler--Maruyama step of
-    the simulator also shifts the stationary moments themselves, by an amount
-    that the time-step check of the bench measures. Moments are as in Gatto &
+    a genuine difference between two settings. The values hold under the
+    assumptions of
+    :func:`qot_course.quantum_ot.biharmonic.long_run_joint_density`, which the
+    simulated scheme satisfies as well as the continuous-time model.
+
+    There are two references, according to the moments passed in. Fed with
+    :func:`qot_course.quantum_ot.biharmonic.stationary_moments`, the function
+    gives the long-run values of the continuous-time model. Fed with
+    :func:`qot_course.quantum_ot.biharmonic.discretised_stationary_moments` at
+    the simulation step, it gives those of the Euler--Maruyama scheme actually
+    simulated, and this is the value a simulated mean converges to as the
+    records get longer and more numerous. The two differ by the step bias,
+    which is first order in the step and a few thousandths on :math:`|m_2|` at
+    the bench step 0.05. A finite record departs from the scheme's value by a
+    sampling bias, which is positive for the two moduli, because the modulus
+    of an average is on average larger than the modulus of its expectation;
+    its sign for the information measures and for the Bures distance is not
+    established here and is read from the results. Moments are as in Gatto &
     Jammalamadaka (2007), DOI: 10.1016/j.stamet.2006.11.003.
 
     Examples
@@ -673,7 +684,9 @@ def compare_conditions(
         ``noise_std`` (rad/sqrt(s)), ``dt`` and ``burn_in`` (s), forwarded to
         :func:`qot_course.quantum_ot.biharmonic.simulate_biharmonic_dyad`, and
         ``n_modes``, forwarded with the frequencies and the noise to
-        :func:`qot_course.quantum_ot.biharmonic.stationary_moments`.
+        :func:`qot_course.quantum_ot.biharmonic.stationary_moments` and, with
+        ``dt`` as well, to
+        :func:`qot_course.quantum_ot.biharmonic.discretised_stationary_moments`.
     weight_sets : mapping of str to sequence of float
         Weighted embeddings, as in :func:`record_statistics`.
     false_alarm_rate : float, default 0.05
@@ -689,8 +702,15 @@ def compare_conditions(
         the keys ``statistic`` (name), ``mean_a``, ``mean_b``, ``sd_a``,
         ``sd_b`` (mean and standard deviation, ``ddof=1``, over the finite
         values of sets A and B), ``exact_a``, ``exact_b`` (long-run values of
-        :func:`long_run_statistics`, computed for the continuous-time model,
-        while the records are simulated with the step ``dt``), ``score`` (:func:`signed_score` of B - A
+        :func:`long_run_statistics` for the continuous-time model, from
+        :func:`qot_course.quantum_ot.biharmonic.stationary_moments`),
+        ``exact_discrete_a``, ``exact_discrete_b`` (long-run values of
+        :func:`long_run_statistics` for the Euler--Maruyama scheme simulated
+        with the model's ``dt``, from
+        :func:`qot_course.quantum_ot.biharmonic.discretised_stationary_moments`;
+        these are the values ``mean_a`` and ``mean_b`` converge to as the
+        records get longer and more numerous, up to the sampling bias of a
+        finite record), ``score`` (:func:`signed_score` of B - A
         against A' - A''), ``auc`` (:func:`auc` of the raw values of A and B),
         ``detection_rate`` (:func:`detection_rate` of B - A against
         A' - A''), ``null_sd_a`` and ``null_sd_b`` (standard deviations of the
@@ -705,13 +725,16 @@ def compare_conditions(
         ``mean_a``, ``sd_a``, ``mean_b``, ``sd_b`` and ``auc`` use every finite
         value of a set, so they can rest on more records than ``n_valid``.
         Summaries computed on fewer than two finite values are NaN, except
-        ``auc``, which needs one finite value on each side.
+        ``auc``, which needs one finite value on each side. The exact
+        relative-phase values, of either reference, are NaN when the exact
+        :math:`|m_1|` is below ``min_first_moment``, as at :math:`K_1 = 0`.
 
     Raises
     ------
     ValueError
         If ``model`` lacks one of its keys (the message names it), or if the
-        simulator or :func:`qot_course.quantum_ot.biharmonic.stationary_moments`
+        simulator, :func:`qot_course.quantum_ot.biharmonic.stationary_moments`
+        or :func:`qot_course.quantum_ot.biharmonic.discretised_stationary_moments`
         rejects a setting.
 
     Notes
@@ -738,8 +761,8 @@ def compare_conditions(
     ...          "dt": 0.05, "burn_in": 50.0, "n_modes": 200}
     >>> rows = compare_conditions((0.0, 0.0), (0.0, 0.1), duration=20.0,
     ...                           n_records=4, seed=0, model=model, weight_sets={})
-    >>> rows[1]["statistic"], round(rows[1]["exact_b"], 3)
-    ('plv2', 0.362)
+    >>> rows[1]["statistic"], round(rows[1]["exact_b"], 3), round(rows[1]["exact_discrete_b"], 3)
+    ('plv2', 0.362, 0.359)
     """
     missing = [key for key in _MODEL_KEYS if key not in model]
     if missing:
@@ -751,6 +774,21 @@ def compare_conditions(
         label: long_run_statistics(
             stationary_moments(
                 k1, k2, max_harmonic=_MAX_EXACT_HARMONIC, **moment_kwargs
+            ),
+            weight_sets=weight_sets,
+            min_first_moment=min_first_moment,
+        )
+        for label, (k1, k2) in (("A", condition_a), ("B", condition_b))
+    }
+    # The same statistics for the scheme as simulated, at the model's step.
+    exact_discrete = {
+        label: long_run_statistics(
+            discretised_stationary_moments(
+                k1,
+                k2,
+                dt=model["dt"],
+                max_harmonic=_MAX_EXACT_HARMONIC,
+                **moment_kwargs,
             ),
             weight_sets=weight_sets,
             min_first_moment=min_first_moment,
@@ -807,6 +845,8 @@ def compare_conditions(
                 "sd_b": sd_b,
                 "exact_a": float(exact["A"][key]),
                 "exact_b": float(exact["B"][key]),
+                "exact_discrete_a": float(exact_discrete["A"][key]),
+                "exact_discrete_b": float(exact_discrete["B"][key]),
                 "score": signed_score(observed, null_a),
                 "auc": auc(a, b),
                 "detection_rate": detection_rate(

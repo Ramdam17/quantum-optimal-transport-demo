@@ -97,6 +97,23 @@ _PAIR_SOLVER_TOL = 1e-14
 # harmonic count is excluded on purpose: each solver fixes the one it needs, so a
 # caller cannot make it match fewer moments than it reports (structural).
 _MODEL_KEYWORDS = frozenset({"omega_1", "omega_2", "noise_std", "n_modes"})
+# Extra Fourier modes, beyond twice the Carson bandwidth of the step factor, in
+# the first grid tried by discretised_stationary_moments. The Bessel functions of
+# the Jacobi-Anger expansion leave their oscillating range over a transition of a
+# few times the cube root of their argument, which is under 10 modes for every
+# step and coupling of the bench; 64 covers it several times over. Heuristic,
+# and checked a posteriori on every call (see _SPECTRUM_TAIL_FRACTION).
+_SPECTRUM_MARGIN = 64
+# The aliasing check of discretised_stationary_moments reads the outer eighth of
+# the folded spectrum on each side, indices above (1/2 - 1/8) M of a grid of M
+# points. The first grid puts those indices beyond 1.5 times the bandwidth, and
+# the kept band must end below them (structural, see the function's Notes).
+_SPECTRUM_TAIL_FRACTION = 1.0 / 8.0
+# Largest grid size tried before discretised_stationary_moments gives up on
+# resolving the step factor. 2**20 points hold the spectrum of a factor whose
+# bandwidth is several hundred thousand modes, far beyond any setting where the
+# scheme is meaningful; the cap only prevents an unbounded loop (heuristic).
+_MAX_SPECTRUM_GRID = 2**20
 
 
 def simulate_biharmonic_dyad(
@@ -368,6 +385,306 @@ def stationary_moments(
     return (2.0 * np.pi * coeffs[centre - k]).astype(np.complex128)
 
 
+def _check_finite(**values: float) -> None:
+    """Raise a ValueError naming the first argument that is NaN or infinite."""
+    for name, value in values.items():
+        if not np.isfinite(value):
+            raise ValueError(f"{name} must be finite, got {value}")
+
+
+def _step_factor_band(
+    k1: float,
+    k2: float,
+    *,
+    dt: float,
+    detuning: float,
+    n_modes: int,
+) -> tuple[NDArray[np.complex128], int]:
+    """Fourier coefficients of exp(i k dt f(Delta)) - 1 for 0 <= k <= n_modes.
+
+    Returns the coefficient array and the half-width of the band outside which
+    every coefficient, for any ``|k| <= n_modes``, is negligible. Row ``k`` of
+    the array holds the coefficients for that ``k``; column ``c`` is the
+    coefficient of ``exp(i j Delta)`` with ``j`` congruent to ``c`` modulo the
+    grid size. Row ``-k`` is the complex conjugate of row ``k`` with
+    ``j -> -j``, because the factor of ``-k`` is the conjugate of that of
+    ``k``, so only ``k >= 0`` is transformed. The
+    grid starts from the size derived in the Notes of
+    :func:`discretised_stationary_moments` and doubles until the outer part of
+    the folded spectrum is negligible.
+    """
+    size = 2 * n_modes + 1
+    k_nonneg = np.arange(n_modes + 1)
+    # Carson bandwidth of the step factor: the largest derivative of its phase
+    # k dt f(Delta) over the circle and over |k| <= n_modes, in modes.
+    bandwidth = int(np.ceil(2.0 * n_modes * dt * (abs(k1) + 2.0 * abs(k2))))
+    grid = 1 << int(np.ceil(np.log2(2 * (2 * bandwidth + _SPECTRUM_MARGIN))))
+    # A coefficient error below this bound, summed over the at most `size` terms
+    # of one equation of the moment system, stays below _CONVERGENCE_RATIO.
+    tail_limit = _CONVERGENCE_RATIO / size
+    while True:
+        x = 2.0 * np.pi * np.arange(grid) / grid
+        drift = detuning - 2.0 * k1 * np.sin(x) - 2.0 * k2 * np.sin(2.0 * x)
+        phase = dt * k_nonneg[:, None] * drift[None, :]
+        # exp(i phase) - 1 written as -2 sin^2(phase / 2) + i sin(phase): at a
+        # small step the factor is 1 + O(dt), and subtracting the 1 after the
+        # exponential would lose the digits that carry the drift.
+        factor = -2.0 * np.sin(0.5 * phase) ** 2 + 1j * np.sin(phase)
+        spectrum = np.fft.fft(factor, axis=1) / grid
+        folded = np.abs(np.fft.fftfreq(grid, d=1.0 / grid))
+        # Largest modulus at each folded index |j|, over k >= 0 and, through the
+        # mirror j -> -j, over k < 0.
+        largest = np.abs(spectrum).max(axis=0)
+        largest = np.maximum(largest, largest[(-np.arange(grid)) % grid])
+        outer = folded >= (0.5 - _SPECTRUM_TAIL_FRACTION) * grid
+        tail = float(largest[outer].max())
+        if tail <= tail_limit:
+            break
+        if 2 * grid > _MAX_SPECTRUM_GRID:
+            raise ValueError(
+                f"the step factor of the scheme is not resolved on {grid} points (outer "
+                f"coefficients reach {tail:.2e}, limit {tail_limit:.1e}) with dt={dt}, "
+                f"k1={k1}, k2={k2}; the step is far too large for this coupling"
+            )
+        grid *= 2
+    kept = folded[largest > tail_limit]
+    # No equation couples moments more than 2 n_modes apart.
+    half_width = min(int(kept.max()) if kept.size else 0, 2 * n_modes)
+    # Drop the negligible coefficients inside the band too. Besides matching the
+    # error bound, this keeps exact zeros exact: with K1 = 0 the odd coefficients
+    # vanish in theory, and their round-off would otherwise leave m1 at 1e-17.
+    spectrum[np.abs(spectrum) <= tail_limit] = 0.0
+    return spectrum, half_width
+
+
+def discretised_stationary_moments(
+    k1: float,
+    k2: float,
+    *,
+    dt: float,
+    omega_1: float = 1.0,
+    omega_2: float = 1.2,
+    noise_std: float = 0.3,
+    max_harmonic: int = 2,
+    n_modes: int = 200,
+) -> NDArray[np.complex128]:
+    """Exact long-run circular moments of the Euler--Maruyama scheme, without simulation.
+
+    :func:`simulate_biharmonic_dyad` advances both phases by one step of
+    length :math:`\\delta t` with independent normal increments of variance
+    :math:`\\sigma^2 \\delta t`. Subtracting the two updates as they are coded,
+    the phase difference :math:`\\Delta = \\theta_1 - \\theta_2` follows the chain
+
+    .. math::
+
+        \\Delta' = \\Delta + \\delta t\\, f(\\Delta) + s\\,\\xi, \\qquad
+        f(\\Delta) = \\Delta\\omega - 2K_1 \\sin\\Delta - 2K_2 \\sin 2\\Delta, \\qquad
+        s^2 = 2\\sigma^2 \\delta t,
+
+    with :math:`\\xi` a standard normal variable independent of :math:`\\Delta`:
+    the coupling enters each oscillator once with each sign, which doubles it
+    in the difference, and the two noise variances add. Because
+    :math:`e^{ik\\Delta}` is :math:`2\\pi`-periodic for an integer :math:`k`, this is
+    a Markov chain on the circle. At stationarity :math:`\\Delta'` has the law
+    of :math:`\\Delta`, and averaging over :math:`\\xi` first gives, for every
+    integer :math:`k`,
+
+    .. math::
+
+        m_k = e^{-k^2 s^2 / 2}\\,
+        E\\bigl[e^{ik\\Delta}\\, e^{ik\\,\\delta t\\, f(\\Delta)}\\bigr]
+        = e^{-k^2 \\sigma^2 \\delta t} \\sum_j a^{(k)}_j\\, m_{k+j},
+
+    where :math:`a^{(k)}_j` are the Fourier coefficients of the periodic factor
+    :math:`e^{ik\\,\\delta t\\, f(\\Delta)} = \\sum_j a^{(k)}_j e^{ij\\Delta}`.
+    This is a linear system on the moments. It is truncated at
+    :math:`|k| \\le` ``n_modes``, the equation :math:`k = 0` (which reads
+    :math:`m_0 = m_0`) is replaced by :math:`m_0 = 1`, and the system is solved
+    densely. As :math:`\\delta t \\to 0` the system reduces to the stationary
+    Fokker--Planck equation solved by :func:`stationary_moments`.
+
+    Parameters
+    ----------
+    k1 : float
+        First-harmonic coupling :math:`K_1` (rad/s).
+    k2 : float
+        Second-harmonic coupling :math:`K_2` (rad/s); the sign is meaningful.
+    dt : float
+        Euler--Maruyama step :math:`\\delta t` of the simulated scheme (s).
+    omega_1, omega_2 : float, default 1.0 and 1.2
+        Natural frequencies (rad/s), as in notebook 04/11.
+    noise_std : float, default 0.3
+        Noise amplitude :math:`\\sigma` of each oscillator (rad / sqrt(s)).
+    max_harmonic : int, default 2
+        Highest harmonic :math:`k` returned.
+    n_modes : int, default 200
+        Truncation order of the moment system, :math:`|k| \\le` ``n_modes``.
+
+    Returns
+    -------
+    moments : ndarray of complex, shape (max_harmonic + 1,)
+        Entry ``k`` is :math:`E[e^{i k \\Delta}]` under the stationary law of the
+        scheme, with :math:`\\Delta = \\theta_1 - \\theta_2`; entry 0 equals 1.
+        Dimensionless. The layout is that of :func:`stationary_moments`.
+
+    Raises
+    ------
+    ValueError
+        If a coupling, a frequency, ``dt`` or ``noise_std`` is not finite, if
+        ``dt`` or ``noise_std`` is not positive, if ``max_harmonic`` is
+        negative, if ``n_modes`` is too small to hold the requested harmonics
+        and the convergence check, if the truncation has not converged (the
+        message then names ``n_modes`` and asks for a larger value), or if the
+        step factor cannot be resolved on the largest grid allowed.
+
+    Notes
+    -----
+    When to use: as the value a simulated mean converges to when the records
+    are made longer and more numerous at a fixed step. :func:`stationary_moments`
+    gives the long-run moments of the continuous-time model, which the
+    simulator reaches only as :math:`\\delta t \\to 0`; this function gives
+    those of the scheme actually simulated. Use the first to describe the
+    model, and this one to judge a simulated statistic or to match two
+    settings as they will be simulated. At the bench step
+    :math:`\\delta t = 0.05` the two differ by a few thousandths on
+    :math:`|m_2|`, and the difference shrinks in proportion to the step.
+
+    The coefficients :math:`a^{(k)}_j` come from a fast Fourier transform of the
+    factor sampled on a regular grid of :math:`M` points, minus one, written
+    as :math:`-2\\sin^2(\\phi/2) + i\\sin\\phi` so that the small drift term keeps
+    its digits at a small step; the rows :math:`k < 0` are the conjugates of
+    the rows :math:`k > 0` with :math:`j \\to -j`.
+    A closed form exists through the Jacobi--Anger expansion, a double sum of
+    products of Bessel functions, but its truncation would have to be
+    controlled in the same way, and the transform gives all the coefficients
+    of a row at once. The same expansion says where the coefficients live:
+    those of row :math:`k` are negligible beyond the Carson bandwidth
+    :math:`B = 2\\,|k|\\,\\delta t\\,(|K_1| + 2|K_2|)` plus a transition of a few
+    times :math:`B^{1/3}`, and they decay faster than exponentially past it.
+    The transform returns each coefficient plus its aliases
+    :math:`a_{j \\pm M}, a_{j \\pm 2M}, \\dots`. The first grid is the smallest
+    power of two with :math:`M \\ge 2\\,(2B + 64)` at :math:`|k| = N` =
+    ``n_modes``. It is then checked: every computed coefficient with folded
+    index above :math:`3M/8` must be below :math:`\\varepsilon = 10^{-10} /
+    (2N + 1)`, and the grid doubles until it is. Coefficients below
+    :math:`\\varepsilon` are then dropped (so that a coefficient that vanishes
+    in theory, such as every odd one when :math:`K_1 = 0`, is exactly zero),
+    which leaves a banded system of
+    half-width :math:`W < 3M/8`, solved with :func:`scipy.linalg.solve_banded`.
+    The aliases that reach a kept coefficient come from indices above
+    :math:`M - W > 5M/8`, past the checked region, where the coefficients are
+    smaller still. Each equation is a sum of at most :math:`2N + 1`
+    coefficients times moments of modulus at most one, so the dropped and
+    aliased parts change it by less than :math:`10^{-10}`. At the bench step
+    the band is a few tens of modes wide and one call takes about 2 ms.
+
+    The truncation is checked as in :func:`stationary_moments`: if the two
+    outermost moments on either side exceed ``1e-10`` (the modulus of
+    :math:`m_0`), the function raises. The default ``n_modes = 200`` passes
+    this check, and doubling it changes :math:`m_1` and :math:`m_2` by less than
+    ``1e-10``, on the settings of the bench at :math:`\\delta t = 0.05`,
+    including the slowly decaying trap setting :math:`(K_1, K_2) = (0, 0.3)`,
+    and at :math:`\\delta t = 10^{-4}`.
+
+    The bench reads every statistic from these moments through
+    :func:`long_run_joint_density`, which needs two properties of the
+    stationary law: each phase is uniform, and only the difference carries
+    structure. Both hold for the scheme. Adding the two coded updates, the sum
+    :math:`S = \\theta_1 + \\theta_2` receives :math:`\\delta t(\\omega_1 + \\omega_2)`,
+    in which the coupling cancels, and the noise :math:`\\sigma\\sqrt{\\delta t}
+    (z_1 + z_2)`. The pair :math:`z_1 + z_2, z_1 - z_2` is jointly normal with
+    zero covariance, so the noise of the sum is independent of the chain of
+    the difference, and after :math:`n` steps the factor
+    :math:`E[e^{i c S / 2}]` with :math:`c \\neq 0` is damped by
+    :math:`e^{-c^2 \\sigma^2 \\delta t\\, n / 4}` whatever the start. The joint
+    density therefore keeps only the elements carried by :math:`m_k`, as in
+    continuous time.
+
+    What is established: the recurrence is exact for the update as coded,
+    with no approximation in :math:`\\delta t`, and the two numerical
+    truncations are checked on every call. What is not: the existence and
+    uniqueness of the stationary law of the chain is assumed here from the
+    positive noise on a compact state space, not proved, and a singular
+    system would surface as an error of :func:`numpy.linalg.solve`. The
+    derivation is elementary, so no source is cited.
+
+    Examples
+    --------
+    >>> m = discretised_stationary_moments(0.3, 0.0, dt=0.05)
+    >>> m.shape
+    (3,)
+    >>> round(float(abs(m[2]) - abs(stationary_moments(0.3, 0.0)[2])), 5)
+    -0.00356
+    """
+    _check_finite(
+        k1=k1, k2=k2, dt=dt, omega_1=omega_1, omega_2=omega_2, noise_std=noise_std
+    )
+    if dt <= 0.0:
+        raise ValueError(f"dt must be positive, got {dt}")
+    if noise_std <= 0.0:
+        raise ValueError(f"noise_std must be positive, got {noise_std}")
+    if max_harmonic < 0:
+        raise ValueError(f"max_harmonic must be non-negative, got {max_harmonic}")
+    # The convergence check reads the two outermost moments on each side, which
+    # must lie beyond the returned harmonics.
+    min_modes = max_harmonic + 2
+    if n_modes < min_modes:
+        raise ValueError(
+            f"n_modes must be at least {min_modes} for max_harmonic={max_harmonic}, "
+            f"got {n_modes}"
+        )
+
+    size = 2 * n_modes + 1
+    centre = n_modes  # index of the moment m_0
+    ks = np.arange(-n_modes, n_modes + 1)
+    spectrum, width = _step_factor_band(
+        k1, k2, dt=dt, detuning=omega_1 - omega_2, n_modes=n_modes
+    )
+    grid = spectrum.shape[1]
+    # Equation of row i (harmonic k = ks[i]):
+    #   e^{-q_k} sum_j b^{(k)}_j m_{k+j} + (e^{-q_k} - 1) m_k = 0,
+    # with b = a - delta_{j0} and q_k = k^2 sigma^2 dt. Column c holds m_{ks[c]},
+    # so the coefficient index is j = c - i. Banded storage of
+    # scipy.linalg.solve_banded: ab[width + i - c, c] = A[i, c] for |c - i| <= width.
+    damping = ks.astype(float) ** 2 * noise_std**2 * dt
+    offsets = np.arange(-width, width + 1)  # j = c - i
+    cols = np.arange(size)
+    rows = cols[None, :] - offsets[:, None]  # i = c - j, shape (2 width + 1, size)
+    valid = (rows >= 0) & (rows < size)
+    safe_rows = np.where(valid, rows, centre)
+    # b^{(k)}_j for k >= 0 from the transformed rows, and for k < 0 as the
+    # conjugate of b^{(-k)}_{-j}.
+    k_of_row = ks[safe_rows]
+    j = np.broadcast_to(offsets[:, None], k_of_row.shape)
+    coefficient = np.where(
+        k_of_row >= 0,
+        spectrum[np.abs(k_of_row), j % grid],
+        np.conj(spectrum[np.abs(k_of_row), (-j) % grid]),
+    )
+    ab = np.where(valid, np.exp(-damping)[safe_rows] * coefficient, 0.0).astype(
+        np.complex128
+    )
+    # Row index width - j of ab holds offset j, so offset j sits at width - j.
+    ab = ab[::-1]
+    ab[width] += np.expm1(-damping)
+    # Replace the trivial equation k = 0 by the normalisation m_0 = 1.
+    inside = np.abs(offsets) <= n_modes  # columns centre + j that exist
+    ab[width - offsets[inside], centre + offsets[inside]] = 0.0
+    ab[width, centre] = 1.0
+    rhs = np.zeros(size, dtype=np.complex128)
+    rhs[centre] = 1.0
+    moments = solve_banded((width, width), ab, rhs)
+
+    edge = float(np.abs(moments[[0, 1, -2, -1]]).max())
+    if edge > _CONVERGENCE_RATIO:
+        raise ValueError(
+            f"moment truncation has not converged with n_modes={n_modes}: the outermost "
+            f"moments reach {edge:.2e} (limit {_CONVERGENCE_RATIO:.0e}); increase n_modes"
+        )
+    k = np.arange(max_harmonic + 1)
+    return moments[centre + k].astype(np.complex128)
+
+
 def relative_phase(moments: NDArray[np.complex128]) -> float:
     """Relative phase of the second circular moment with respect to the first.
 
@@ -576,19 +893,61 @@ def _check_model_keywords(model: dict[str, float]) -> None:
         )
 
 
+def _check_matching_step(dt: float | None) -> None:
+    """Reject a step that is given but not a finite positive number.
+
+    Parameters
+    ----------
+    dt : float or None
+        Step of the scheme the solvers match on, or None for continuous time.
+
+    Raises
+    ------
+    ValueError
+        If ``dt`` is not None and is not finite and positive; the message names ``dt``.
+    """
+    if dt is not None and not (np.isfinite(dt) and dt > 0.0):
+        raise ValueError(f"dt must be None or a finite positive step, got {dt}")
+
+
+def _matched_moments(
+    k1: float,
+    k2: float,
+    *,
+    max_harmonic: int,
+    dt: float | None,
+    model: dict[str, float],
+) -> NDArray[np.complex128]:
+    """Moments the matched-settings solvers compare: continuous time or the scheme.
+
+    With ``dt`` None they come from :func:`stationary_moments`, otherwise from
+    :func:`discretised_stationary_moments` at that step, with the same model
+    keywords in both cases.
+    """
+    if dt is None:
+        return stationary_moments(k1, k2, max_harmonic=max_harmonic, **model)
+    return discretised_stationary_moments(
+        k1, k2, dt=dt, max_harmonic=max_harmonic, **model
+    )
+
+
 def solve_k1_for_plv(
     target: float,
     k2: float,
     *,
     k1_search_max: float = 3.0,
+    dt: float | None = None,
     **model: float,
 ) -> float:
     """First-harmonic coupling that gives a requested phase-locking value.
 
     Finds the first :math:`K_1 \\ge 0`, on the scan described below, at which the
-    exact long-run phase-locking value :math:`|m_1| = |E[e^{i\\Delta}]|` of
-    :func:`stationary_moments` equals ``target``, with :math:`K_2` held at
-    ``k2``. The function :math:`|m_1| - \\text{target}` is evaluated on 301
+    exact long-run phase-locking value :math:`|m_1| = |E[e^{i\\Delta}]|` equals
+    ``target``, with :math:`K_2` held at ``k2``. With ``dt`` None the matched
+    law is the stationary law of the continuous-time model
+    (:func:`stationary_moments`); with a step ``dt`` it is the stationary law
+    of the Euler--Maruyama scheme simulated at that step
+    (:func:`discretised_stationary_moments`). The function :math:`|m_1| - \\text{target}` is evaluated on 301
     evenly spaced values of :math:`K_1` in ``[0, k1_search_max]`` (a step of
     0.01 rad/s on the default interval), and the first sign change is refined
     with Brent's method.
@@ -601,8 +960,12 @@ def solve_k1_for_plv(
         Second-harmonic coupling :math:`K_2` (rad/s), held fixed.
     k1_search_max : float, default 3.0
         Upper end of the scanned interval of :math:`K_1` (rad/s).
+    dt : float or None, default None
+        Step of the simulated scheme to match on (s), or None to match the
+        continuous-time model.
     **model : float
-        Forwarded to :func:`stationary_moments`: ``omega_1``, ``omega_2``,
+        Forwarded to :func:`stationary_moments` or
+        :func:`discretised_stationary_moments`: ``omega_1``, ``omega_2``,
         ``noise_std`` and ``n_modes``.
 
     Returns
@@ -615,7 +978,8 @@ def solve_k1_for_plv(
     ------
     ValueError
         If a keyword of ``model`` is not one of the four listed above (the
-        message names it), if ``k1_search_max`` is not positive, or if no sign
+        message names it), if ``dt`` is given but not finite and positive, if
+        ``k1_search_max`` is not positive, or if no sign
         change of :math:`|m_1| - \\text{target}` is found on the scan. The last
         message names ``target`` and ``k2``.
 
@@ -623,7 +987,10 @@ def solve_k1_for_plv(
     -----
     When to use: to build two settings with the same phase-locking value and
     different second-harmonic couplings, so that any difference a statistic
-    sees between them cannot come from :math:`|m_1|`.
+    sees between them cannot come from :math:`|m_1|`. Match on the scheme
+    (``dt`` set to the simulation step) when the two settings will be
+    simulated and compared, because the step shifts :math:`|m_1|` by a
+    different amount in each setting.
 
     The root found is the first crossing on the scan from zero, not a
     guaranteed global smallest root. With the default detuning, :math:`|m_1|`
@@ -639,11 +1006,12 @@ def solve_k1_for_plv(
     0.3
     """
     _check_model_keywords(model)
+    _check_matching_step(dt)
     if k1_search_max <= 0.0:
         raise ValueError(f"k1_search_max must be positive, got {k1_search_max}")
 
     def gap(k1: float) -> float:
-        moments = stationary_moments(k1, k2, max_harmonic=1, **model)
+        moments = _matched_moments(k1, k2, max_harmonic=1, dt=dt, model=model)
         return float(abs(moments[1])) - target
 
     grid = np.linspace(0.0, k1_search_max, _K1_SCAN_POINTS)
@@ -697,13 +1065,18 @@ def solve_equal_moduli_pair(
     k2_bound: float = 0.15,
     tolerance: float = 1e-6,
     k1_search_max: float = 3.0,
+    dt: float | None = None,
     **model: float,
 ) -> EqualModuliPair:
     """Partner setting with the same moduli of both moments and opposite K2.
 
     Searches for :math:`(K_1, K_2)` with :math:`K_2` of the sign opposite to
     ``k2_ref`` and :math:`|K_2| \\le` ``k2_bound`` such that :math:`|m_1|` and
-    :math:`|m_2|` of :func:`stationary_moments` equal those of the reference.
+    :math:`|m_2|` equal those of the reference. With ``dt`` None the moments
+    are those of the continuous-time model (:func:`stationary_moments`); with
+    a step ``dt`` they are those of the Euler--Maruyama scheme simulated at
+    that step (:func:`discretised_stationary_moments`), for the reference and
+    the partner alike.
     The two modulus differences are minimised with
     :func:`scipy.optimize.least_squares` under the bounds
     :math:`K_1 \\in [0,` ``k1_search_max`` :math:`]` and :math:`K_2` between
@@ -726,15 +1099,19 @@ def solve_equal_moduli_pair(
         Largest modulus difference for which the pair counts as found.
     k1_search_max : float, default 3.0
         Upper bound on the partner's :math:`K_1` (rad/s).
+    dt : float or None, default None
+        Step of the simulated scheme to match on (s), or None to match the
+        continuous-time model.
     **model : float
-        Forwarded to :func:`stationary_moments`: ``omega_1``, ``omega_2``,
+        Forwarded to :func:`stationary_moments` or
+        :func:`discretised_stationary_moments`: ``omega_1``, ``omega_2``,
         ``noise_std`` and ``n_modes``.
 
     Returns
     -------
     pair : EqualModuliPair
-        The reference, the best partner found, its residual and whether the
-        residual is within ``tolerance`` with a partner :math:`K_2` strictly of
+        The reference, the best partner found, its residual (on the matched
+        law) and whether the residual is within ``tolerance`` with a partner :math:`K_2` strictly of
         the opposite sign. A request out of reach is returned with
         ``found=False``, not raised, and a warning is logged.
 
@@ -742,8 +1119,8 @@ def solve_equal_moduli_pair(
     ------
     ValueError
         If a keyword of ``model`` is not one of the four listed above (the
-        message names it), if ``k2_ref`` is zero (the opposite sign is then
-        undefined), or if ``k2_bound``, ``tolerance`` or ``k1_search_max`` is
+        message names it), if ``dt`` is given but not finite and positive, if
+        ``k2_ref`` is zero (the opposite sign is then undefined), or if ``k2_bound``, ``tolerance`` or ``k1_search_max`` is
         not positive.
 
     Notes
@@ -755,7 +1132,9 @@ def solve_equal_moduli_pair(
     the default model, :math:`(K_1, K_2) = (0.05, 0.15)` is one, and the
     result then carries ``found=False``. A local search from a few starts can
     miss a partner that exists; ``found=False`` means none was found, not that
-    none exists.
+    none exists. Match on the scheme (``dt`` set to the simulation step) when
+    the pair will be simulated: a pair matched in continuous time is, at the
+    bench step 0.05, mismatched by several times ``1e-4`` on the moduli.
 
     Examples
     --------
@@ -764,6 +1143,7 @@ def solve_equal_moduli_pair(
     (True, True)
     """
     _check_model_keywords(model)
+    _check_matching_step(dt)
     if k2_ref == 0.0:
         raise ValueError("k2_ref must be nonzero: the opposite sign is undefined")
     if k2_bound <= 0.0:
@@ -773,10 +1153,12 @@ def solve_equal_moduli_pair(
     if k1_search_max <= 0.0:
         raise ValueError(f"k1_search_max must be positive, got {k1_search_max}")
 
-    ref = np.abs(stationary_moments(k1_ref, k2_ref, max_harmonic=2, **model)[1:3])
+    ref = np.abs(
+        _matched_moments(k1_ref, k2_ref, max_harmonic=2, dt=dt, model=model)[1:3]
+    )
 
     def differences(x: NDArray[np.float64]) -> NDArray[np.float64]:
-        moments = stationary_moments(x[0], x[1], max_harmonic=2, **model)
+        moments = _matched_moments(x[0], x[1], max_harmonic=2, dt=dt, model=model)
         return np.abs(moments[1:3]) - ref
 
     sign = float(np.sign(k2_ref))

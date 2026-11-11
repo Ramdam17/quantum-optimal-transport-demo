@@ -129,3 +129,63 @@ def test_summary_averages_the_null_standard_deviations_over_seeds(tmp_path):
             assert cell == ""
         else:
             assert float(cell) == pytest.approx(expected)
+
+
+def _after(header, name, count):
+    i = header.index(name)
+    return header[i + 1 : i + 1 + count]
+
+
+def test_comparisons_and_summary_carry_the_exact_values_of_the_scheme(tmp_path):
+    assert main(["--quick", "--out", str(tmp_path)]) == 0
+    for name in ("comparisons.csv", "summary.csv"):
+        with (tmp_path / name).open() as fh:
+            header = next(csv.reader(fh))
+        assert _after(header, "exact_b", 2) == ["exact_discrete_a", "exact_discrete_b"], name
+    summary = _rows(tmp_path / "summary.csv")
+    trap = next(r for r in summary if r["experiment"] == "trap" and r["statistic"] == "plv2")
+    assert float(trap["exact_discrete_b"]) == pytest.approx(0.796789, abs=1e-6)   # 0.8018 in continuous time
+    assert float(trap["exact_b"]) - float(trap["exact_discrete_b"]) > 4e-3
+
+
+def test_matched_pairs_are_solved_on_the_simulated_scheme(tmp_path):
+    from qot_course.quantum_ot.biharmonic import discretised_stationary_moments
+
+    assert main(["--quick", "--out", str(tmp_path)]) == 0
+    meta = json.loads((tmp_path / "run_metadata.json").read_text())
+    dt = meta["config"]["model"]["dt"]
+    solved = {s["experiment"]: s for s in reversed(meta["solved_settings"])}
+    for entry in meta["solved_settings"]:
+        if entry["experiment"] in ("equal_plv", "equal_moduli"):
+            assert entry["matched_on"] == "discretised scheme" and entry["matched_dt"] == dt
+        else:
+            assert "matched_on" not in entry and "matched_dt" not in entry
+    plv = solved["equal_plv"]
+    for side in ("condition_a", "condition_b"):
+        m = discretised_stationary_moments(*plv[side], dt=dt)
+        assert abs(m[1]) == pytest.approx(plv["target"], abs=1e-6)
+    pair = solved["equal_moduli"]["pair"]
+    ref = discretised_stationary_moments(pair["k1_ref"], pair["k2_ref"], dt=dt)
+    other = discretised_stationary_moments(pair["k1"], pair["k2"], dt=dt)
+    residual = max(abs(abs(other[h]) - abs(ref[h])) for h in (1, 2))
+    assert pair["residual"] == pytest.approx(residual, abs=1e-12)
+
+
+def test_timestep_check_reports_the_gap_to_the_scheme(tmp_path):
+    from qot_course.quantum_ot.biharmonic import discretised_stationary_moments
+
+    assert main(["--quick", "--out", str(tmp_path)]) == 0
+    with (tmp_path / "timestep_check.csv").open() as fh:
+        header = next(csv.reader(fh))
+    assert header == [
+        "k1", "k2", "dt", "n_records",
+        "abs_m1_exact", "abs_m1_sim", "abs_m1_se", "abs_m1_gap_se", "abs_m1_exact_discrete", "abs_m1_gap_discrete_se",
+        "abs_m2_exact", "abs_m2_sim", "abs_m2_se", "abs_m2_gap_se", "abs_m2_exact_discrete", "abs_m2_gap_discrete_se",
+    ]
+    for row in _rows(tmp_path / "timestep_check.csv"):
+        m = discretised_stationary_moments(float(row["k1"]), float(row["k2"]), dt=float(row["dt"]))
+        for h in (1, 2):
+            assert float(row[f"abs_m{h}_exact_discrete"]) == pytest.approx(abs(m[h]), abs=1e-12)
+            if row[f"abs_m{h}_se"] not in ("", "0.0"):
+                gap = (float(row[f"abs_m{h}_sim"]) - abs(m[h])) / float(row[f"abs_m{h}_se"])
+                assert float(row[f"abs_m{h}_gap_discrete_se"]) == pytest.approx(gap, rel=1e-9)

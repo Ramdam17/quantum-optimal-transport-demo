@@ -16,19 +16,37 @@ whole protocol and writes eight files to the output directory, in this order:
     The Spearman rank correlations, along the ``k1`` grid at ``k2 = 0``, of the
     exact ``abs_m1`` with the exact ``abs_m2`` and with the exact ``qmi_rich``.
 ``timestep_check.csv``
-    Simulated against exact moduli at the configured time steps.
+    Simulated against exact moduli at the configured time steps, the exact
+    values being those of the continuous-time model (``abs_m*_exact``) and those
+    of the Euler--Maruyama scheme at the row's step (``abs_m*_exact_discrete``),
+    each with the gap of the simulated modulus in standard errors.
 ``comparisons.csv``
-    One row per comparison, record duration, master seed and statistic.
+    One row per comparison, record duration, master seed and statistic, with
+    both exact references: ``exact_a`` and ``exact_b`` for the continuous-time
+    model, then ``exact_discrete_a`` and ``exact_discrete_b`` for the scheme
+    simulated at the model's ``dt``, which is what the simulated means converge
+    to.
 ``summary.csv``
-    The comparisons summarised over master seeds, including the mean numbers of
-    valid records and of null differences and the mean null standard deviations.
+    The comparisons summarised over master seeds, with the same two references,
+    including the mean numbers of valid records and of null differences and the
+    mean null standard deviations.
 ``reliability.csv``
     The shortest duration whose mean detection rate reaches the threshold, with
     the mean numbers of valid records and of null differences at that duration.
     The experiment ``trap`` has no row.
 ``run_metadata.json``
     The resolved configuration, the software versions, the solved settings and
-    the comparisons that were not made, with the reason for each.
+    the comparisons that were not made, with the reason for each. Each solved
+    setting that comes from a solver records the law it was matched on
+    (``matched_on``, ``"discretised scheme"``) and the step (``matched_dt``).
+
+The first three files describe the continuous-time model. The matched pairs of
+the experiments ``equal_plv`` and ``equal_moduli`` are solved on the stationary
+law of the scheme simulated at the model's ``dt``
+(:func:`qot_course.quantum_ot.biharmonic.discretised_stationary_moments`),
+because the step shifts the moments by a different amount in the two settings
+of a pair: a pair matched in continuous time would, as simulated, no longer be
+matched.
 
 The sign convention is that of the library: :math:`\\Delta = \\theta_1 - \\theta_2`
 and :math:`m_k = E[e^{ik\\Delta}]`. The script is pure NumPy and SciPy: it never
@@ -102,6 +120,7 @@ from scipy.stats import rankdata, spearmanr
 
 from qot_course.quantum_ot.bench_protocol import compare_conditions, long_run_statistics
 from qot_course.quantum_ot.biharmonic import (
+    discretised_stationary_moments,
     relative_phase,
     simulate_biharmonic_dyad,
     solve_equal_moduli_pair,
@@ -135,6 +154,9 @@ MAX_HARMONIC = 2
 # and to the simulator (structural, fixed by the library signatures).
 SOLVER_KEYS = ("omega_1", "omega_2", "noise_std", "n_modes")
 SIMULATOR_KEYS = ("omega_1", "omega_2", "noise_std", "dt", "burn_in")
+# Value of the key matched_on in run_metadata.json for a setting solved on the
+# stationary law of the simulated Euler-Maruyama scheme (structural).
+MATCHED_ON_SCHEME = "discretised scheme"
 # Experiments in their fixed numbering order (see "Seeds" in the module docstring).
 EXPERIMENTS = ("detection", "equal_plv", "equal_moduli", "trap")
 # Columns that prefix every row of compare_conditions in comparisons.csv.
@@ -157,6 +179,8 @@ COMPARISON_KEYS = (
     "sd_b",
     "exact_a",
     "exact_b",
+    "exact_discrete_a",
+    "exact_discrete_b",
     "score",
     "auc",
     "detection_rate",
@@ -581,7 +605,13 @@ def write_timestep_check(
     and its ``se`` is the first-order standard error of that modulus from
     :func:`mean_modulus_and_se`, ``std(Re(z * conj(u)), ddof=1) / sqrt(n)`` with
     ``u`` the direction of the mean. The columns ``abs_m1_gap_se`` and
-    ``abs_m2_gap_se`` give ``(sim - exact) / se``. Where the modulus of the mean
+    ``abs_m2_gap_se`` give ``(sim - exact) / se``, with ``exact`` the value of
+    the continuous-time model. The columns ``abs_m1_exact_discrete`` and
+    ``abs_m2_exact_discrete`` give the moduli of
+    :func:`qot_course.quantum_ot.biharmonic.discretised_stationary_moments` at
+    the row's ``dt``, the value the simulated modulus converges to at that step,
+    and ``abs_m1_gap_discrete_se``, ``abs_m2_gap_discrete_se`` the simulated
+    modulus minus that value, in the same standard errors. Where the modulus of the mean
     is not well above ``se``, as for the first moment of the setting with
     ``k1 = 0``, the modulus is biased upward and its gap in standard errors is
     not meaningful. When the mean is exactly zero, ``se`` and the gap are
@@ -661,6 +691,11 @@ def write_timestep_check(
                 abs_m1, se1 = mean_modulus_and_se(record_moments[1])
                 abs_m2, se2 = mean_modulus_and_se(record_moments[2])
                 abs_m1_exact, abs_m2_exact = float(abs(exact[1])), float(abs(exact[2]))
+                exact_discrete = discretised_stationary_moments(
+                    k1, k2, dt=dt, max_harmonic=MAX_HARMONIC, **solver_kwargs
+                )
+                abs_m1_discrete = float(abs(exact_discrete[1]))
+                abs_m2_discrete = float(abs(exact_discrete[2]))
                 row = {
                     "k1": k1,
                     "k2": k2,
@@ -670,16 +705,21 @@ def write_timestep_check(
                     "abs_m1_sim": abs_m1,
                     "abs_m1_se": se1,
                     "abs_m1_gap_se": _gap_in_se(abs_m1, abs_m1_exact, se1),
+                    "abs_m1_exact_discrete": abs_m1_discrete,
+                    "abs_m1_gap_discrete_se": _gap_in_se(abs_m1, abs_m1_discrete, se1),
                     "abs_m2_exact": abs_m2_exact,
                     "abs_m2_sim": abs_m2,
                     "abs_m2_se": se2,
                     "abs_m2_gap_se": _gap_in_se(abs_m2, abs_m2_exact, se2),
+                    "abs_m2_exact_discrete": abs_m2_discrete,
+                    "abs_m2_gap_discrete_se": _gap_in_se(abs_m2, abs_m2_discrete, se2),
                 }
                 rows.append(row)
                 logger.info(
                     "timestep_check: K1=%g K2=%g dt=%g, %d records in %d chunks: "
-                    "|m1| %.4f sim vs %.4f exact (gap %.2f se), |m2| %.4f sim vs "
-                    "%.4f exact (gap %.2f se), %.1f s",
+                    "|m1| %.4f sim vs %.4f exact (gap %.2f se) and %.4f scheme (gap "
+                    "%.2f se), |m2| %.4f sim vs %.4f exact (gap %.2f se) and %.4f "
+                    "scheme (gap %.2f se), %.1f s",
                     k1,
                     k2,
                     dt,
@@ -688,9 +728,13 @@ def write_timestep_check(
                     row["abs_m1_sim"],
                     abs_m1_exact,
                     row["abs_m1_gap_se"],
+                    abs_m1_discrete,
+                    row["abs_m1_gap_discrete_se"],
                     row["abs_m2_sim"],
                     abs_m2_exact,
                     row["abs_m2_gap_se"],
+                    abs_m2_discrete,
+                    row["abs_m2_gap_discrete_se"],
                     time.perf_counter() - start,
                 )
         _write_csv(path, list(rows[0]), rows)
@@ -702,8 +746,11 @@ def plan_comparisons(
 ) -> list[PlannedComparison]:
     """Solve the settings of every comparison, in the fixed numbering order.
 
-    A ``ValueError`` of :func:`solve_k1_for_plv` in the equal-phase-locking
-    comparisons is not caught: a missing matched comparison stops the run with
+    The matched settings of ``equal_plv`` and ``equal_moduli`` are solved on
+    the stationary law of the scheme simulated at the model's ``dt``, and each
+    records ``matched_on`` and ``matched_dt``; the residual of the equal-moduli
+    pair is its residual on that law. A ``ValueError`` of
+    :func:`solve_k1_for_plv` in the equal-phase-locking comparisons is not caught: a missing matched comparison stops the run with
     the solver's message. An equal-moduli pair that is not found within the
     bound is kept in the plan with ``condition_b = None`` and a reason that
     gives the closest partner and its residual.
@@ -723,6 +770,10 @@ def plan_comparisons(
     """
     solver_kwargs = _select(model, SOLVER_KEYS)
     k1_search_max = float(section["solver"]["k1_search_max"])
+    # The pairs are compared on simulated records, so they are matched on the
+    # stationary law of the scheme at the simulation step.
+    dt = float(model["dt"])
+    matched = {"matched_on": MATCHED_ON_SCHEME, "matched_dt": dt}
     uncoupled = (0.0, 0.0)
     plan: list[PlannedComparison] = []
 
@@ -741,11 +792,17 @@ def plan_comparisons(
 
     for entry_index, entry in enumerate(section["equal_plv"]):
         target, k2 = float(entry["target"]), float(entry["k2"])
-        k1_a = solve_k1_for_plv(target, 0.0, k1_search_max=k1_search_max, **solver_kwargs)
-        k1_b = solve_k1_for_plv(target, k2, k1_search_max=k1_search_max, **solver_kwargs)
+        k1_a = solve_k1_for_plv(
+            target, 0.0, k1_search_max=k1_search_max, dt=dt, **solver_kwargs
+        )
+        k1_b = solve_k1_for_plv(
+            target, k2, k1_search_max=k1_search_max, dt=dt, **solver_kwargs
+        )
         logger.info(
-            "equal_plv: |m1|=%g reached at (K1=%.6f, K2=0) and (K1=%.6f, K2=%g)",
+            "equal_plv: |m1|=%g of the scheme at dt=%g reached at (K1=%.6f, K2=0) "
+            "and (K1=%.6f, K2=%g)",
             target,
+            dt,
             k1_a,
             k1_b,
             k2,
@@ -761,6 +818,7 @@ def plan_comparisons(
                     "target": target,
                     "condition_a": (k1_a, 0.0),
                     "condition_b": (k1_b, k2),
+                    **matched,
                 },
             )
         )
@@ -772,15 +830,18 @@ def plan_comparisons(
         k2_bound=float(eq["k2_bound"]),
         tolerance=float(eq["tolerance"]),
         k1_search_max=k1_search_max,
+        dt=dt,
         **solver_kwargs,
     )
     label = f"k1_ref={pair.k1_ref:g},k2_ref={pair.k2_ref:g}"
     reference = (pair.k1_ref, pair.k2_ref)
     if pair.found:
         logger.info(
-            "equal_moduli: partner of (K1=%g, K2=%g) is (K1=%.6f, K2=%.6f), residual %.2e",
+            "equal_moduli: partner of (K1=%g, K2=%g) on the scheme at dt=%g is "
+            "(K1=%.6f, K2=%.6f), residual %.2e",
             pair.k1_ref,
             pair.k2_ref,
+            dt,
             pair.k1,
             pair.k2,
             pair.residual,
@@ -792,13 +853,14 @@ def plan_comparisons(
                 label,
                 reference,
                 (pair.k1, pair.k2),
-                solved={"pair": asdict(pair)},
+                solved={"pair": asdict(pair), **matched},
             )
         )
     else:
         reason = (
             f"no partner of (k1={pair.k1_ref:g}, k2={pair.k2_ref:g}) with equal |m1| "
-            f"and |m2| and |k2| <= {float(eq['k2_bound']):g} within tolerance "
+            f"and |m2| on the scheme at dt={dt:g} and |k2| <= "
+            f"{float(eq['k2_bound']):g} within tolerance "
             f"{float(eq['tolerance']):g}; the closest partner found is "
             f"(k1={pair.k1:.6f}, k2={pair.k2:.6g}) with residual {pair.residual:.3e}"
         )
@@ -809,7 +871,7 @@ def plan_comparisons(
                 label,
                 reference,
                 None,
-                solved={"pair": asdict(pair)},
+                solved={"pair": asdict(pair), **matched},
                 not_made_reason=reason,
             )
         )
@@ -922,8 +984,8 @@ def write_summary(rows: Sequence[Mapping[str, Any]], out: Path) -> list[dict[str
     defined; ``n_seeds`` counts the seeds, and ``n_seeds_score_defined``,
     ``n_seeds_auc_defined`` and ``n_seeds_detection_defined`` count those at
     which the score, the area under the curve and the detection rate are
-    defined. ``exact_a`` and ``exact_b`` do not depend on
-    the seed. ``mean_n_valid`` and ``mean_n_null`` are the means over the seeds
+    defined. ``exact_a``, ``exact_b``, ``exact_discrete_a`` and
+    ``exact_discrete_b`` do not depend on the seed. ``mean_n_valid`` and ``mean_n_null`` are the means over the seeds
     of ``n_valid`` and ``n_null``; ``mean_null_sd_a`` and ``mean_null_sd_b`` are
     the means over the seeds of the finite values of ``null_sd_a`` and
     ``null_sd_b``. Undefined everywhere gives an empty cell.
@@ -971,6 +1033,8 @@ def write_summary(rows: Sequence[Mapping[str, Any]], out: Path) -> list[dict[str
             out_row["exact_a"] = group[0]["exact_a"]
             out_row["mean_b"] = _finite_summary([r["mean_b"] for r in group])[0]
             out_row["exact_b"] = group[0]["exact_b"]
+            out_row["exact_discrete_a"] = group[0]["exact_discrete_a"]
+            out_row["exact_discrete_b"] = group[0]["exact_discrete_b"]
             out_row["mean_n_valid"] = float(np.mean([r["n_valid"] for r in group]))
             out_row["mean_n_null"] = float(np.mean([r["n_null"] for r in group]))
             out_row["mean_null_sd_a"] = _finite_summary([r["null_sd_a"] for r in group])[0]
@@ -1209,8 +1273,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     Notes
     -----
     When to use: to produce the result files of the bench; ``--quick`` runs a
-    reduced grid and protocol, measured at about 1 s inside this function (under
-    2 s for the whole command) on 2026-11-11, and is what the smoke test calls.
+    reduced grid and protocol, measured at about 7 s inside this function (about
+    8 s for the whole command) on 2026-11-11, and is what the smoke test calls.
+    About 6 s of it is the solving of the matched pairs on the discretised
+    scheme, whose moments cost a few milliseconds each against a fraction of a
+    millisecond in continuous time.
     The model is the two-harmonic phase interaction of Haken, Kelso and Bunz
     (1985), DOI: 10.1007/BF00336922, and the exact moments come from the
     stationary Fokker--Planck solution of Risken (1996),

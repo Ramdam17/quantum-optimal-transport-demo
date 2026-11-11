@@ -5,6 +5,7 @@ from scipy.special import ive
 
 from qot_course.quantum_ot.biharmonic import (
     EqualModuliPair,
+    discretised_stationary_moments,
     long_run_joint_density,
     relative_phase,
     simulate_biharmonic_dyad,
@@ -237,3 +238,129 @@ def test_matched_solvers_reject_keywords_they_do_not_forward(solve, keyword, val
     # With max_harmonic=1 the pair solver would match |m1| alone and report a false pair.
     with pytest.raises(ValueError, match=keyword):
         solve(**{keyword: value})
+
+
+# ---------------------------------------------------------------------------
+# Exact stationary moments of the Euler-Maruyama scheme
+# ---------------------------------------------------------------------------
+
+BENCH_SETTINGS = [(0.3, 0.0), (0.1, 0.1), (0.0, 0.1), (0.06, -0.10)]
+
+
+@pytest.mark.parametrize("k1, k2", [(0.3, 0.0), (0.1, 0.1), (0.0, 0.1), (0.06, -0.10), (0.0, 0.3)])
+def test_discretised_moments_tend_to_the_continuous_ones_at_a_small_step(k1, k2):
+    # The step bias is first order in dt. At dt = 0.05 the largest component gap to the
+    # continuous-time moments over these settings is 5.5e-3 (trap setting), so at dt = 1e-4,
+    # 500 times smaller, the expected gap is at most about 1.1e-5. The tolerance 2e-5 allows
+    # for that bias and nothing else: the numerical error of either solver is below 1e-12.
+    discrete = discretised_stationary_moments(k1, k2, dt=1e-4)
+    continuous = stationary_moments(k1, k2)
+    np.testing.assert_allclose(discrete, continuous, rtol=0.0, atol=2e-5)
+
+
+def test_discretised_moments_converge_at_first_order_in_the_step():
+    continuous = stationary_moments(0.3, 0.0)
+    gaps = [abs(discretised_stationary_moments(0.3, 0.0, dt=dt)[2] - continuous[2]) for dt in (0.05, 0.025)]
+    assert gaps[1] > 1e-4                       # far above rounding
+    assert gaps[0] / gaps[1] == pytest.approx(2.0, abs=0.1)
+
+
+def _modulus_and_se(z):
+    """Modulus of the mean and its standard error by projection on the mean direction."""
+    mean = z.mean()
+    projected = (z * np.conj(mean / abs(mean))).real
+    return abs(mean), projected.std(ddof=1) / np.sqrt(z.size)
+
+
+def test_discretised_moments_describe_the_simulated_scheme_not_the_model():
+    # At dt = 0.5 the step bias of |m2| is about -0.04, far above the standard error of
+    # 256 records of 2,000 s. The circle chain has a stationary law at any step, and with
+    # K1 = 0.3 the locked state contracts by a factor of about 0.7 per step.
+    k1, k2, dt = 0.3, 0.0, 0.5
+    t1, t2 = simulate_biharmonic_dyad(k1, k2, n_records=256, duration=2000.0, dt=dt, burn_in=100.0, seed=4)
+    delta = t1 - t2
+    discrete = discretised_stationary_moments(k1, k2, dt=dt)
+    continuous = stationary_moments(k1, k2)
+    for h in (1, 2):
+        modulus, se = _modulus_and_se(np.exp(1j * h * delta).mean(axis=1))
+        assert abs(modulus - abs(discrete[h])) < 4 * se, h
+        assert abs(modulus - abs(continuous[h])) > 5 * se, h
+
+
+@pytest.mark.parametrize("k1, k2", BENCH_SETTINGS + [(0.0, 0.3)])
+def test_discretised_truncation_has_converged_in_the_bench_range(k1, k2):
+    np.testing.assert_allclose(
+        discretised_stationary_moments(k1, k2, dt=0.05, n_modes=200),
+        discretised_stationary_moments(k1, k2, dt=0.05, n_modes=400),
+        rtol=0.0, atol=1e-10,
+    )
+
+
+@pytest.mark.parametrize(
+    "setting, expected_gap", zip(BENCH_SETTINGS, (-0.00356, -0.00382, -0.00316, -0.00349)),
+)
+def test_step_bias_of_the_second_moment_at_the_bench_step(setting, expected_gap):
+    # Gaps predicted by the final review of the bench, rounded to five decimals.
+    gap = abs(discretised_stationary_moments(*setting, dt=0.05)[2]) - abs(stationary_moments(*setting)[2])
+    assert gap == pytest.approx(expected_gap, abs=2e-5)
+
+
+def test_unconverged_discretised_truncation_raises_and_names_n_modes():
+    with pytest.raises(ValueError, match="n_modes"):
+        discretised_stationary_moments(0.0, 0.3, dt=1e-4, n_modes=8)
+
+
+@pytest.mark.parametrize(
+    "kwargs, name",
+    [({"dt": 0.0}, "dt"), ({"dt": -0.05}, "dt"), ({"dt": np.inf}, "dt"), ({"dt": np.nan}, "dt"),
+     ({"noise_std": 0.0}, "noise_std"), ({"noise_std": np.nan}, "noise_std"),
+     ({"omega_1": np.inf}, "omega_1"), ({"omega_2": np.nan}, "omega_2"),
+     ({"k1": np.nan}, "k1"), ({"k2": np.inf}, "k2"),
+     ({"max_harmonic": -1}, "max_harmonic"), ({"n_modes": 3}, "n_modes")],
+)
+def test_invalid_discretised_arguments_name_the_offender(kwargs, name):
+    args = {"k1": 0.1, "k2": 0.1, "dt": 0.05}
+    args.update(kwargs)
+    k1, k2 = args.pop("k1"), args.pop("k2")
+    with pytest.raises(ValueError, match=name):
+        discretised_stationary_moments(k1, k2, **args)
+
+
+def test_discretised_moments_keep_the_layout_of_the_continuous_ones():
+    m = discretised_stationary_moments(0.1, 0.1, dt=0.05, max_harmonic=4)
+    assert m.shape == (5,) and m.dtype == np.complex128
+    assert m[0] == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Solvers matched on the discretised scheme
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("target, k2", [(0.3, 0.0), (0.3, -0.10), (0.6, 0.04)])
+def test_matched_phase_locking_value_on_the_discretised_scheme(target, k2):
+    k1 = solve_k1_for_plv(target, k2, dt=0.05)
+    assert abs(discretised_stationary_moments(k1, k2, dt=0.05)[1]) == pytest.approx(target, abs=1e-6)
+    k1_continuous = solve_k1_for_plv(target, k2)
+    assert 1e-5 < abs(k1 - k1_continuous) < 0.02
+
+
+def test_equal_moduli_pair_on_the_discretised_scheme():
+    pair = solve_equal_moduli_pair(0.05, 0.12, dt=0.05)
+    assert pair.found and pair.k2 < 0
+    ref = discretised_stationary_moments(0.05, 0.12, dt=0.05)
+    other = discretised_stationary_moments(pair.k1, pair.k2, dt=0.05)
+    np.testing.assert_allclose(np.abs(other[1:]), np.abs(ref[1:]), atol=1e-6)
+    continuous = solve_equal_moduli_pair(0.05, 0.12)
+    shift = np.hypot(pair.k1 - continuous.k1, pair.k2 - continuous.k2)
+    assert 1e-5 < shift < 0.02
+
+
+@pytest.mark.parametrize(
+    "solve",
+    [lambda: solve_k1_for_plv(0.3, 0.0, dt=0.0), lambda: solve_equal_moduli_pair(0.05, 0.12, dt=-0.1)],
+    ids=["plv", "equal_moduli"],
+)
+def test_matched_solvers_reject_a_non_positive_step(solve):
+    with pytest.raises(ValueError, match="dt"):
+        solve()

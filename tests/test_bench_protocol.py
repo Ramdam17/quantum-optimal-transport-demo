@@ -5,7 +5,9 @@ from qot_course.quantum_ot.bench_protocol import (
     STATISTIC_KEYS_BASE, auc, compare_conditions, detection_rate, harmonic_plv,
     long_run_statistics, record_statistics, relative_phase_components, signed_score,
 )
-from qot_course.quantum_ot.biharmonic import simulate_biharmonic_dyad, stationary_moments
+from qot_course.quantum_ot.biharmonic import (
+    discretised_stationary_moments, simulate_biharmonic_dyad, stationary_moments,
+)
 from qot_course.quantum_ot.capstone import plv
 
 WEIGHTS = {"qmi_weighted_02": (1.0, 0.2, 2.0), "qmi_weighted_05": (1.0, 0.5, 2.0)}
@@ -139,3 +141,27 @@ def test_compare_conditions_reports_the_number_of_null_differences():
     assert list(by["plv"])[-2:] == ["n_valid", "n_null"]
     assert by["plv"]["n_null"] == 6
     assert 0 <= by["relphase_sin"]["n_null"] <= 6
+
+
+def test_compare_conditions_carries_the_exact_values_of_the_simulated_scheme():
+    rows = compare_conditions((0.3, 0.0), (0.1, 0.1), seed=5, **SHORT)
+    by = {r["statistic"]: r for r in rows}
+    assert list(by["plv"])[list(by["plv"]).index("exact_b") + 1 :][:2] == ["exact_discrete_a", "exact_discrete_b"]
+    for side, setting in (("a", (0.3, 0.0)), ("b", (0.1, 0.1))):
+        discrete = discretised_stationary_moments(*setting, dt=MODEL["dt"])
+        continuous = stationary_moments(*setting)
+        for key, h in (("plv", 1), ("plv2", 2)):
+            predicted = abs(discrete[h]) - abs(continuous[h])
+            assert abs(predicted) > 1e-3                     # a clear step bias
+            gap = by[key][f"exact_discrete_{side}"] - by[key][f"exact_{side}"]
+            assert gap == pytest.approx(predicted, abs=1e-12), (key, side)
+        exact = long_run_statistics(discrete, weight_sets={})
+        assert by["qmi_rich"][f"exact_discrete_{side}"] == pytest.approx(exact["qmi_rich"], abs=1e-12)
+
+
+def test_exact_discrete_relative_phase_is_undefined_without_first_harmonic():
+    rows = compare_conditions((0.0, 0.0), (0.0, 0.10), seed=5, **SHORT)
+    by = {r["statistic"]: r for r in rows}
+    assert np.isnan(by["relphase_sin"]["exact_discrete_b"]) and np.isnan(by["relphase_cos"]["exact_discrete_a"])
+    assert by["plv2"]["exact_discrete_b"] == pytest.approx(0.359159, abs=1e-6)   # 0.3623 in continuous time
+
