@@ -16,6 +16,7 @@ from qot_course.quantum_ot.sdp import (
     quantum_ot_sdp,
 )
 from qot_course.quantum_ot.sinkhorn import (
+    _is_pure_state,
     matrix_gibbs_kernel,
     operator_sinkhorn,
     quantum_sinkhorn_cost,
@@ -249,18 +250,20 @@ def test_quantum_sinkhorn_sdp_is_exact_for_a_pure_marginal(pure_side):
     )
 
 
-def test_quantum_sinkhorn_sdp_is_exact_for_a_pure_qutrit_marginal():
-    """Pure qutrit against a full-rank qutrit, generic cost: value = tr(C P) - eps S(rho_B)."""
+@pytest.mark.parametrize("pure_side", ["a", "b"])
+def test_quantum_sinkhorn_sdp_is_exact_for_a_pure_qutrit_marginal(pure_side):
+    """Pure qutrit against a full-rank qutrit, generic cost: value = tr(C P) - eps S(mixed)."""
     rng = np.random.default_rng(0)
-    rho_a = density_matrix(_random_ket(rng, 3))
-    rho_b = _random_full_rank_state(rng, 3)
+    pure = density_matrix(_random_ket(rng, 3))
+    full_rank = _random_full_rank_state(rng, 3)
+    rho_a, rho_b = (pure, full_rank) if pure_side == "a" else (full_rank, pure)
     C = _random_hermitian(rng, 9)
     eps = 0.3
     value, plan = quantum_sinkhorn_sdp(rho_a, rho_b, C, epsilon=eps)
     product = tensor(rho_a, rho_b)
-    # S(rho_A x rho_B) = S(rho_A) + S(rho_B) and S(rho_A) = 0 for a pure state.
+    # S(rho_A x rho_B) = S(rho_A) + S(rho_B), and the entropy of the pure side is zero.
     expected = float(np.real(np.trace(C @ product))) - eps * von_neumann_entropy(
-        rho_b, base=np.e
+        full_rank, base=np.e
     )
     np.testing.assert_allclose(plan, product, atol=PURE_MARGINAL_EXACT_ATOL)
     assert value == pytest.approx(expected, abs=PURE_MARGINAL_EXACT_ATOL)
@@ -280,22 +283,48 @@ def test_quantum_sinkhorn_sdp_is_exact_when_both_marginals_are_pure():
     )
 
 
-def test_quantum_sinkhorn_sdp_skips_the_solver_only_for_a_pure_marginal(monkeypatch):
-    """The closed form is used for a pure marginal and for nothing else.
-
-    A marginal with eigenvalues (1 - 1e-6, 1e-6) is not pure: its couplings are not
-    unique, so the problem still goes to the solver.
-    """
+# Spectra on each side of the purity threshold of 1e-12. The second eigenvalue of a
+# state built from a normalised ket is of order 1e-16; 1e-13 is still rounding, 1e-9 is
+# a mixed state whose couplings are not unique.
+@pytest.mark.parametrize(
+    ("second_eigenvalue", "expected_solver_calls"),
+    [(0.0, 0), (1e-13, 0), (1e-9, 1), (1e-6, 1)],
+)
+def test_quantum_sinkhorn_sdp_skips_the_solver_only_for_a_pure_marginal(
+    monkeypatch, second_eigenvalue, expected_solver_calls
+):
+    """The closed form is used for a marginal that is pure up to rounding, and for no other."""
     calls = _count_solver_calls(monkeypatch)
-    mixed = maximally_mixed(2)
+    rho_a = np.diag([1.0 - second_eigenvalue, second_eigenvalue]).astype(complex)
     C = quadratic_position_cost([0.0, 1.0])
+    quantum_sinkhorn_sdp(rho_a, maximally_mixed(2), C, epsilon=0.4)
+    assert len(calls) == expected_solver_calls
 
-    quantum_sinkhorn_sdp(density_matrix(KET_PLUS), mixed, C, epsilon=0.4)
-    assert len(calls) == 0
 
-    almost_pure = np.diag([1.0 - 1e-6, 1e-6]).astype(complex)
-    quantum_sinkhorn_sdp(almost_pure, mixed, C, epsilon=0.4)
-    assert len(calls) == 1
+@pytest.mark.parametrize(
+    "not_a_state",
+    [
+        # Trace one, largest eigenvalue above one, one negative eigenvalue.
+        np.diag([1.0 + 1e-9, -1e-9]),
+        np.diag([1.2, -0.2]),
+        # Largest eigenvalue one, but the others do not vanish.
+        np.diag([1.0, 0.3, -0.3]),
+        # A pure state multiplied by two: not normalised.
+        2.0 * np.full((2, 2), 0.5),
+        # The zero matrix.
+        np.zeros((2, 2)),
+    ],
+)
+def test_is_pure_state_rejects_matrices_that_are_not_pure_states(not_a_state):
+    """Only the spectrum (0, ..., 0, 1) counts as pure; invalid inputs go to the solver."""
+    assert not _is_pure_state(not_a_state.astype(complex))
+
+
+def test_is_pure_state_accepts_pure_states_of_any_dimension():
+    rng = np.random.default_rng(2)
+    for dim in (1, 2, 3, 9):
+        assert _is_pure_state(density_matrix(_random_ket(rng, dim)))
+    assert not _is_pure_state(maximally_mixed(2))
 
 
 def test_quantum_sinkhorn_sdp_objective_matches_its_plan():

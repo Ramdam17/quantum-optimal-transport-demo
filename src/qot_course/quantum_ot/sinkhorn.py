@@ -59,27 +59,34 @@ def matrix_gibbs_kernel(cost: np.ndarray, epsilon: float) -> np.ndarray:
     return spla.expm(-np.asarray(cost, dtype=complex) / float(epsilon))
 
 
-# A density matrix built from a normalised ket has its largest eigenvalue within about
-# 1e-15 of one in double precision (measured: at most 1.1e-15 on 8,000 random kets in
-# dimensions 2, 3, 4 and 9). The threshold below leaves three orders of magnitude above
-# that rounding level and still means "pure up to rounding", not "nearly pure".
+# The spectrum of a density matrix built from a normalised ket is (0, ..., 0, 1) up to
+# rounding: over 20,000 random kets in dimensions 2, 3, 4 and 9, no eigenvalue was
+# measured further than 1.4e-15 from that pattern. The threshold below leaves three
+# orders of magnitude above that rounding level and still means "pure up to rounding",
+# not "nearly pure".
 _PURE_STATE_EIGENVALUE_ATOL = 1e-12
 
 
 def _is_pure_state(rho: np.ndarray) -> bool:
     """Tell whether a density matrix is a pure state, up to floating-point rounding.
 
+    When to use: to recognise the marginals for which the coupling is unique, before
+    deciding whether a transport problem needs a solver at all.
+
     Parameters
     ----------
     rho : np.ndarray
-        Hermitian positive semidefinite matrix, shape ``(d, d)``, complex. It is
-        divided by its trace, so an unnormalised input is handled.
+        Hermitian matrix, shape ``(d, d)``, complex. It is expected to be a density
+        matrix (positive semidefinite, trace one) but is not assumed to be one.
 
     Returns
     -------
     bool
-        ``True`` when the largest eigenvalue of ``rho / tr(rho)`` is within
-        :data:`_PURE_STATE_EIGENVALUE_ATOL` of one.
+        ``True`` when the largest eigenvalue is within
+        :data:`_PURE_STATE_EIGENVALUE_ATOL` of one and every other eigenvalue is within
+        the same distance of zero. A matrix that is not a density matrix (a negative
+        eigenvalue, a trace different from one, the zero matrix) is therefore never
+        reported as pure.
 
     Examples
     --------
@@ -88,11 +95,15 @@ def _is_pure_state(rho: np.ndarray) -> bool:
     True
     >>> _is_pure_state(np.eye(2, dtype=complex) / 2)
     False
+    >>> _is_pure_state(np.diag([1.2, -0.2]).astype(complex))
+    False
     """
-    hermitian = 0.5 * (rho + rho.conj().T)
-    largest = float(np.linalg.eigvalsh(hermitian)[-1])
-    trace = float(np.real(np.trace(hermitian)))
-    return bool(1.0 - largest / trace <= _PURE_STATE_EIGENVALUE_ATOL)
+    eigenvalues = np.linalg.eigvalsh(0.5 * (rho + rho.conj().T))
+    largest_is_one = abs(float(eigenvalues[-1]) - 1.0) <= _PURE_STATE_EIGENVALUE_ATOL
+    others_vanish = bool(
+        np.all(np.abs(eigenvalues[:-1]) <= _PURE_STATE_EIGENVALUE_ATOL)
+    )
+    return bool(largest_is_one and others_vanish)
 
 
 def quantum_sinkhorn_sdp(
@@ -110,7 +121,8 @@ def quantum_sinkhorn_sdp(
 
     When to use: as the convex-solver reference for the entropic problem on small
     systems (two qubits or two qutrits). Use :func:`operator_sinkhorn` when you want
-    the alternating iteration itself; the two agree only in the commuting case.
+    the alternating iteration itself; the two return the same plan in the commuting
+    case and different plans in general (see the notes of :func:`operator_sinkhorn`).
 
     Parameters
     ----------
@@ -158,9 +170,11 @@ def quantum_sinkhorn_sdp(
     \\otimes \\rho_B`, whatever the cost and whatever :math:`\\varepsilon`; the same
     holds with the roles exchanged. The function returns that product and the objective
     :math:`\\mathrm{tr}(C\\,\\rho_A \\otimes \\rho_B) - \\varepsilon\\,(S(\\rho_A) +
-    S(\\rho_B))` directly. A marginal counts as pure when its largest eigenvalue is
-    within :data:`_PURE_STATE_EIGENVALUE_ATOL` of one, which is the rounding level of a
-    state built from a normalised ket.
+    S(\\rho_B))` directly. A marginal counts as pure when its spectrum is
+    :math:`(0, \\dots, 0, 1)` within :data:`_PURE_STATE_EIGENVALUE_ATOL`, which is the
+    rounding level of a state built from a normalised ket. An input that is not a
+    density matrix is never taken for a pure state, so it reaches the solver and
+    fails there as before.
 
     This case is taken out of the solver because the unique coupling lies on the
     boundary of the PSD cone, where the interior-point method stops with status
@@ -171,9 +185,10 @@ def quantum_sinkhorn_sdp(
 
     A marginal that is nearly pure, or rank-deficient without being pure (rank two in
     dimension three, for instance), still goes to the solver and still meets that
-    boundary. Measured with eigenvalues :math:`(1 - 10^{-10},\\ 10^{-10})` against
-    :math:`I/2`: the returned plan is 2.6e-4 away from the product, although positivity
-    keeps every coupling within about :math:`\\sqrt{10^{-10}} = 10^{-5}` of it. For every
+    boundary. Measured with eigenvalues :math:`(1 - 10^{-10},\\ 10^{-10})` on the
+    eigenvectors :math:`|+\\rangle, |-\\rangle` against :math:`I/2`, with the quadratic
+    cost: the returned plan is 2.6e-4 away from the product, although positivity keeps
+    every coupling within about :math:`\\sqrt{10^{-10}} = 10^{-5}` of it. For every
     solved case the objective is evaluated on the returned plan rather than read from
     ``problem.value``, which is ``inf`` there: the solver returns eigenvalues of order
     :math:`-10^{-7}` and cvxpy's own evaluation of the entropy at such a point is
