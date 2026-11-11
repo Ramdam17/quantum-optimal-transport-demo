@@ -140,9 +140,8 @@ DEFAULT_CONFIG = REPO_ROOT / "config" / "base.yaml"
 DEFAULT_OUT = REPO_ROOT / "results" / "second_harmonic_bench"
 # Name of the configuration section read by this script (structural).
 CONFIG_SECTION = "second_harmonic_bench"
-# Width of the bins of abs_m1 in freedom.csv. Layout constant fixed by the plan
-# of the bench (Task 7 of docs/superpowers/plans/2026-11-11-free-second-harmonic-
-# bench.md), not a tuning choice.
+# Width of the bins of abs_m1 in freedom.csv. It fixes the layout of that table
+# and is not a tuning choice.
 FREEDOM_BIN_WIDTH = 0.05
 # Decimals kept on the bin edges written to freedom.csv, so that an edge such as
 # 14 * 0.05 is written 0.7 rather than 0.7000000000000001 (layout, far finer

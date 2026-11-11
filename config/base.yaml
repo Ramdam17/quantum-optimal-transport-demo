@@ -13,7 +13,6 @@ capstone:
   example_duration_s: 120.0 # duration used in docstring examples and quick demos
 
 # Free-second-harmonic bench (scripts/run_second_harmonic_bench.py).
-# Spec: docs/superpowers/specs/2026-11-11-free-second-harmonic-bench-design.md
 second_harmonic_bench:
   model:
     omega_1: 1.0        # rad/s, as in notebook 04/11

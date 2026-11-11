@@ -125,7 +125,8 @@ def test_agrees_with_a_long_simulation():
     t1, t2 = simulate_biharmonic_dyad(0.1, 0.1, n_records=64, duration=2000.0, seed=1)
     per_record = np.exp(1j * (t1 - t2)).mean(axis=1)
     se = per_record.std(ddof=1) / np.sqrt(64)
-    # Five standard errors plus a 0.01 allowance for the Euler-Maruyama step, which Task 7 measures.
+    # Five standard errors plus a 0.01 allowance for the bias of the Euler-Maruyama step, which
+    # the bench measures in timestep_check.csv.
     assert abs(per_record.mean() - m[1]) < 5 * se + 0.01
 
 
