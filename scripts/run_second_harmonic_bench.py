@@ -58,7 +58,9 @@ section (the section has none for it), and independent of the master seeds:
 of child ``i``, goes to setting ``i`` of ``timestep_check.settings``, time step
 ``j`` of ``timestep_check.dt_values`` and chunk ``c`` of records, the chunks
 holding ``timestep_check.records_per_chunk`` records each, in record order,
-with a smaller last chunk when the count does not divide evenly.
+with a smaller last chunk when the count does not divide evenly. The chunk
+seeds therefore depend on ``records_per_chunk``: changing that memory setting
+changes every number of the time-step check.
 
 Rank identity. ``continuity.json`` writes, beside each Spearman coefficient as
 :func:`scipy.stats.spearmanr` returns it, a boolean that says whether the two
@@ -497,16 +499,67 @@ def write_continuity(
     return result
 
 
-def _complex_mean_and_se(z: np.ndarray) -> tuple[complex, float]:
-    """Mean of complex values and its standard error ``sqrt(sum|z - mean|^2/(n-1)/n)``."""
+def mean_modulus_and_se(z: np.ndarray) -> tuple[float, float]:
+    """Modulus of the mean of complex values and the standard error of that modulus.
+
+    With :math:`\\bar z` the mean of the ``n`` values and :math:`u = \\bar z/|\\bar z|`
+    its direction, the standard error of :math:`|\\bar z|` is, to first order,
+    that of the projection of the values on :math:`u`:
+    ``se = std(Re(z * conj(u)), ddof=1) / sqrt(n)``. Scatter across the direction
+    of the mean moves the modulus only to second order and does not enter.
+
+    Parameters
+    ----------
+    z : ndarray of complex, shape (n,)
+        One complex value per record, for example the sample circular moment
+        :math:`\\langle e^{ik\\Delta}\\rangle_t` of each record. Dimensionless.
+
+    Returns
+    -------
+    modulus : float
+        :math:`|\\bar z|`, dimensionless.
+    se : float
+        Standard error of ``modulus``, dimensionless. NaN, without warning, when
+        the mean is exactly zero, since it then has no direction to project on.
+
+    Raises
+    ------
+    ValueError
+        If ``z`` holds fewer than two values.
+
+    Notes
+    -----
+    When to use: to read how far the modulus of a mean of complex moments lies
+    from an exact value, in units of its own sampling scatter, as in
+    ``timestep_check.csv``. The first-order formula holds when :math:`|\\bar z|`
+    is well above ``se``. When it is not, as for the first moment at
+    :math:`K_1 = 0` whose exact value is zero, the modulus of the mean is biased
+    upward (a modulus is never negative) and a gap expressed in this standard
+    error is not meaningful. This is the delta method applied to the modulus;
+    no source is cited because the derivation is one line.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> mean_modulus_and_se(np.array([1 + 1j, 1 - 1j]))
+    (1.0, 0.0)
+    """
+    z = np.asarray(z, dtype=complex).ravel()
+    if z.size < 2:
+        raise ValueError(f"at least two values are needed, got {z.size}")
     mean = complex(np.mean(z))
-    se = float(np.sqrt(np.sum(np.abs(z - mean) ** 2) / (z.size - 1) / z.size))
-    return mean, se
+    modulus = abs(mean)
+    if modulus == 0.0:
+        return 0.0, float("nan")
+    direction = mean / modulus
+    projected = (z * np.conj(direction)).real
+    se = float(np.std(projected, ddof=1) / np.sqrt(z.size))
+    return float(modulus), se
 
 
 def _gap_in_se(simulated: float, exact: float, se: float) -> float:
-    """``(simulated - exact) / se``, NaN when the standard error is zero."""
-    if se == 0.0:
+    """``(simulated - exact) / se``; NaN when the standard error is zero or NaN."""
+    if se == 0.0 or math.isnan(se):
         return float("nan")
     return (simulated - exact) / se
 
@@ -522,10 +575,14 @@ def write_timestep_check(
     of one chunk only. Each record is reduced at once to its complex sample
     moments (one complex number per record and harmonic), and only those are
     kept. The simulated modulus is the modulus of their mean over all records,
-    and its ``se`` is the standard error of that complex mean,
-    ``sqrt(sum |z_r - mean|^2 / (n - 1) / n)``, which bounds the standard error of
-    the modulus to first order. The columns ``abs_m1_gap_se`` and
-    ``abs_m2_gap_se`` give ``(sim - exact) / se``.
+    and its ``se`` is the first-order standard error of that modulus from
+    :func:`mean_modulus_and_se`, ``std(Re(z * conj(u)), ddof=1) / sqrt(n)`` with
+    ``u`` the direction of the mean. The columns ``abs_m1_gap_se`` and
+    ``abs_m2_gap_se`` give ``(sim - exact) / se``. Where the modulus of the mean
+    is not well above ``se``, as for the first moment of the setting with
+    ``k1 = 0``, the modulus is biased upward and its gap in standard errors is
+    not meaningful. When the mean is exactly zero, ``se`` and the gap are
+    undefined (empty cells).
 
     Parameters
     ----------
@@ -551,6 +608,11 @@ def write_timestep_check(
         dt_values = [float(dt) for dt in check["dt_values"]]
         n_records = int(check["n_records"])
         records_per_chunk = int(check["records_per_chunk"])
+        # A standard error needs at least two records (structural).
+        if n_records < 2:
+            raise ValueError(
+                f"timestep_check.n_records must be at least 2, got {n_records}"
+            )
         if records_per_chunk < 1:
             raise ValueError(
                 f"timestep_check.records_per_chunk must be at least 1, got {records_per_chunk}"
@@ -593,8 +655,8 @@ def write_timestep_check(
                         )
                     del delta
                     first += chunk_size
-                m1, se1 = _complex_mean_and_se(record_moments[1])
-                m2, se2 = _complex_mean_and_se(record_moments[2])
+                abs_m1, se1 = mean_modulus_and_se(record_moments[1])
+                abs_m2, se2 = mean_modulus_and_se(record_moments[2])
                 abs_m1_exact, abs_m2_exact = float(abs(exact[1])), float(abs(exact[2]))
                 row = {
                     "k1": k1,
@@ -602,13 +664,13 @@ def write_timestep_check(
                     "dt": dt,
                     "n_records": n_records,
                     "abs_m1_exact": abs_m1_exact,
-                    "abs_m1_sim": float(abs(m1)),
+                    "abs_m1_sim": abs_m1,
                     "abs_m1_se": se1,
-                    "abs_m1_gap_se": _gap_in_se(float(abs(m1)), abs_m1_exact, se1),
+                    "abs_m1_gap_se": _gap_in_se(abs_m1, abs_m1_exact, se1),
                     "abs_m2_exact": abs_m2_exact,
-                    "abs_m2_sim": float(abs(m2)),
+                    "abs_m2_sim": abs_m2,
                     "abs_m2_se": se2,
-                    "abs_m2_gap_se": _gap_in_se(float(abs(m2)), abs_m2_exact, se2),
+                    "abs_m2_gap_se": _gap_in_se(abs_m2, abs_m2_exact, se2),
                 }
                 rows.append(row)
                 logger.info(
@@ -854,8 +916,10 @@ def write_summary(rows: Sequence[Mapping[str, Any]], out: Path) -> list[dict[str
     """Comparisons summarised over master seeds, written to ``summary.csv``.
 
     Means, minima and maxima are taken over the seeds at which the value is
-    defined; ``n_seeds`` counts the seeds and ``n_seeds_score_defined`` those
-    at which the score is defined. ``exact_a`` and ``exact_b`` do not depend on
+    defined; ``n_seeds`` counts the seeds, and ``n_seeds_score_defined``,
+    ``n_seeds_auc_defined`` and ``n_seeds_detection_defined`` count those at
+    which the score, the area under the curve and the detection rate are
+    defined. ``exact_a`` and ``exact_b`` do not depend on
     the seed. Undefined everywhere gives an empty cell.
 
     Parameters
@@ -886,13 +950,17 @@ def write_summary(rows: Sequence[Mapping[str, Any]], out: Path) -> list[dict[str
                 "statistic": statistic,
                 "n_seeds": len(group),
             }
-            for name in ("score", "auc", "detection_rate"):
-                mean, low, high, n_defined = _finite_summary([r[name] for r in group])
+            summaries = {
+                name: _finite_summary([r[name] for r in group])
+                for name in ("score", "auc", "detection_rate")
+            }
+            out_row["n_seeds_score_defined"] = summaries["score"][3]
+            out_row["n_seeds_auc_defined"] = summaries["auc"][3]
+            out_row["n_seeds_detection_defined"] = summaries["detection_rate"][3]
+            for name, (mean, low, high, _) in summaries.items():
                 out_row[f"{name}_mean"] = mean
                 out_row[f"{name}_min"] = low
                 out_row[f"{name}_max"] = high
-                if name == "score":
-                    out_row["n_seeds_score_defined"] = n_defined
             out_row["mean_a"] = _finite_summary([r["mean_a"] for r in group])[0]
             out_row["exact_a"] = group[0]["exact_a"]
             out_row["mean_b"] = _finite_summary([r["mean_b"] for r in group])[0]
@@ -968,20 +1036,29 @@ def write_reliability(
 
 def _git_commit() -> dict[str, Any]:
     """Commit hash of the repository and whether the working tree has changes."""
-    head = subprocess.run(
-        ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    status = subprocess.run(
-        ["git", "-C", str(REPO_ROOT), "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        head = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        status = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as err:
+        # A missing git binary must not lose a finished run: record it as unknown.
+        logger.warning("git commit unknown: git could not be run (%s)", err)
+        return {"commit": None, "dirty": None}
     if head.returncode != 0:
-        logger.warning("git commit unavailable: %s", head.stderr.strip())
+        logger.warning(
+            "git commit unknown: git rev-parse exited with %d (%s)",
+            head.returncode,
+            head.stderr.strip(),
+        )
         return {"commit": None, "dirty": None}
     return {"commit": head.stdout.strip(), "dirty": bool(status.stdout.strip())}
 
@@ -1108,8 +1185,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     Notes
     -----
     When to use: to produce the result files of the bench; ``--quick`` runs a
-    reduced grid and protocol in about a minute and is what the smoke test
-    calls. The model is the two-harmonic phase interaction of Haken, Kelso and
+    reduced grid and protocol, measured at about 1 s inside this function (under
+    2 s for the whole command) on 2026-11-11, and is what the smoke test calls. The model is the two-harmonic phase interaction of Haken, Kelso and
     Bunz (1985), DOI: 10.1007/BF00336922, and the exact moments come from the
     stationary Fokker--Planck solution of Risken (1996),
     DOI: 10.1007/978-3-642-61544-3. Seeds and undefined numbers follow the
