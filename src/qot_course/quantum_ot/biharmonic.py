@@ -45,9 +45,13 @@ DOI: 10.1103/PhysRevE.48.3470.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 from numpy.typing import NDArray
 from scipy.linalg import solve_banded
+
+from qot_course.quantum_ot.embeddings import weighted_multifreq_state
 
 # Number of noise components per step: one per oscillator.
 _N_OSCILLATORS = 2
@@ -399,3 +403,123 @@ def relative_phase(moments: NDArray[np.complex128]) -> float:
     if abs(m1) < _MIN_MODULUS or abs(m2) < _MIN_MODULUS:
         return float("nan")
     return float(np.angle(m2 * np.conj(m1) ** 2))
+
+
+def long_run_joint_density(
+    moments: NDArray[np.complex128],
+    *,
+    harmonics: Sequence[int] = (1, 2),
+    weights: Sequence[float] | None = None,
+) -> NDArray[np.complex128]:
+    """Exact long-run joint density of two multi-frequency phase embeddings.
+
+    Each oscillator is embedded as in
+    :func:`qot_course.quantum_ot.embeddings.weighted_multifreq_state`, with
+    channel harmonics :math:`h = (0, h_1, h_2, \\dots)` and normalised weights
+    :math:`w`, and the two embeddings are combined as in
+    :func:`qot_course.quantum_ot.embeddings.joint_density_from_states`, that is
+    :math:`\\rho = E[|\\Psi\\rangle\\langle\\Psi|]` with
+    :math:`|\\Psi\\rangle = |\\psi_A\\rangle \\otimes |\\psi_B\\rangle`. The
+    element between :math:`|i\\rangle_A|j\\rangle_B` (row) and
+    :math:`|k\\rangle_A|l\\rangle_B` (column) is therefore
+
+    .. math::
+
+        \\rho_{ij,kl} = w_i w_j w_k w_l\\,
+        E\\bigl[e^{i (a\\,\\theta_1 + b\\,\\theta_2)}\\bigr],
+        \\qquad a = h_i - h_k, \\quad b = h_j - h_l,
+
+    where the row index carries the phase and the column index its conjugate.
+    Writing :math:`a\\theta_1 + b\\theta_2 = (a + b) S / 2 + (a - b) \\Delta / 2`
+    with :math:`S = \\theta_1 + \\theta_2` and :math:`\\Delta = \\theta_1 - \\theta_2`
+    separates the sum from the difference. Under an antisymmetric coupling with
+    independent noises of equal amplitude, the sum feels no coupling and is an
+    unbounded diffusion with a constant drift, driven by a noise independent of
+    the one that drives the difference. Over a long record the factor in
+    :math:`S` therefore averages to zero whenever :math:`a + b \\neq 0`. When
+    :math:`a + b = 0` the element is :math:`w_i w_j w_k w_l\\, m_a`, with
+    :math:`m_a = E[e^{i a \\Delta}]` and :math:`m_{-a} = \\overline{m_a}`. The
+    surviving elements thus carry the circular moments of the phase difference
+    and nothing else.
+
+    Parameters
+    ----------
+    moments : ndarray of complex, shape (K,)
+        Circular moments of the phase difference, entry ``k`` equal to
+        :math:`E[e^{ik\\Delta}]` with :math:`\\Delta = \\theta_1 - \\theta_2`, as
+        returned by :func:`stationary_moments`. Entry 0 must equal 1 for the
+        result to have unit trace. ``K`` must exceed the largest gap
+        :math:`|h_i - h_k|`, which is ``max(harmonics)`` for positive harmonics.
+        Dimensionless.
+    harmonics : sequence of int, default (1, 2)
+        Phase harmonics of the embedding, as in
+        :func:`qot_course.quantum_ot.embeddings.weighted_multifreq_state`.
+    weights : sequence of float or None, default None
+        Per-channel weights ``(w_DC, w_h1, ...)``, normalised internally exactly
+        as in :func:`qot_course.quantum_ot.embeddings.weighted_multifreq_state`;
+        ``None`` gives equal weights.
+
+    Returns
+    -------
+    rho : ndarray of complex, shape (d*d, d*d)
+        Joint density with ``d = 1 + len(harmonics)``, in the Kronecker basis
+        :math:`|i\\rangle_A|j\\rangle_B \\mapsto i\\,d + j` of
+        :func:`qot_course.quantum_ot.embeddings.joint_density_from_states`.
+        Elements whose phase does not cancel in the sum are exactly zero.
+
+    Raises
+    ------
+    ValueError
+        If ``moments`` is not one-dimensional or holds too few entries for the
+        harmonics, or if ``weights`` has the wrong length.
+
+    Notes
+    -----
+    When to use: to put an exact long-run value beside every quantum statistic
+    measured on simulated records of the two-harmonic dyad, by feeding the
+    result to a measure such as
+    :func:`qot_course.quantum_ot.capstone.coupling_qmi`. The result is valid
+    when the coupling is antisymmetric, the two noises are independent with
+    equal amplitude, and the record is long enough for the sum of the phases to
+    have spread over many turns; on a finite record the vanishing elements are
+    only small, not zero. Moments are as in Gatto & Jammalamadaka (2007),
+    DOI: 10.1016/j.stamet.2006.11.003; the diffusion of the sum follows from
+    the Fokker--Planck description of Risken (1996),
+    DOI: 10.1007/978-3-642-61544-3.
+
+    Examples
+    --------
+    >>> rho = long_run_joint_density(np.array([1.0, 0.4 + 0.1j]), harmonics=(1,))
+    >>> rho.shape
+    (4, 4)
+    >>> bool(np.isclose(rho[2, 1], (0.4 + 0.1j) / 4))   # |1>_A|0>_B against |0>_A|1>_B
+    True
+    """
+    m = np.asarray(moments, dtype=complex)
+    h = np.array((0, *harmonics), dtype=int)
+    # Gap between channel harmonics, for system A (i, k) and for system B (j, l).
+    gap = h[:, None] - h[None, :]
+    max_gap = int(np.abs(gap).max())
+    if m.ndim != 1 or m.shape[0] <= max_gap:
+        raise ValueError(
+            f"moments must be a 1-D array of at least {max_gap + 1} entries "
+            f"for harmonics {tuple(harmonics)}, got shape {m.shape}"
+        )
+    # The embedding at theta = 0 is the normalised weight vector itself, so the
+    # normalisation and the length check are exactly those of the embedding.
+    embedded_zero = weighted_multifreq_state(
+        np.zeros(1), harmonics=harmonics, weights=weights
+    )
+    w = embedded_zero[0].real
+    d = h.shape[0]
+    # Axes (i, j, k, l): a = h_i - h_k on A, b = h_j - h_l on B.
+    a = gap[:, None, :, None]
+    b = gap[None, :, None, :]
+    survives = np.broadcast_to(a + b == 0, (d, d, d, d))
+    a_full = np.broadcast_to(a, (d, d, d, d))
+    # m_a for a >= 0 and conj(m_{-a}) for a < 0.
+    moment = np.where(a_full >= 0, m[np.abs(a_full)], np.conj(m[np.abs(a_full)]))
+    amplitude = np.einsum("i,j,k,l->ijkl", w, w, w, w)
+    tensor = np.where(survives, amplitude * moment, 0.0)
+    # Row (i, j) -> i*d + j and column (k, l) -> k*d + l: the Kronecker basis.
+    return tensor.reshape(d * d, d * d)

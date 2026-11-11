@@ -4,11 +4,16 @@ from scipy.integrate import quad
 from scipy.special import ive
 
 from qot_course.quantum_ot.biharmonic import (
+    long_run_joint_density,
     relative_phase,
     simulate_biharmonic_dyad,
     stationary_moments,
 )
-from qot_course.quantum_ot.capstone import simulate_kuramoto_dyad
+from qot_course.quantum_ot.capstone import coupling_qmi, simulate_kuramoto_dyad
+from qot_course.quantum_ot.embeddings import (
+    joint_density_from_states,
+    weighted_multifreq_state,
+)
 
 
 def test_shapes_and_reproducibility():
@@ -131,3 +136,51 @@ def test_invalid_moment_arguments_name_the_offender(kwargs, name):
 def test_relative_phase_needs_two_harmonics():
     with pytest.raises(ValueError, match="moments"):
         relative_phase(np.array([1.0 + 0j, 0.5 + 0j]))
+
+
+def _synthetic_pair(n=200_000, seed=0):
+    """Phases whose sum is spread independently of their difference."""
+    rng = np.random.default_rng(seed)
+    delta = rng.vonmises(0.4, 1.5, n) + 0.3 * np.sin(2 * rng.uniform(0, 2 * np.pi, n))
+    total = rng.uniform(0, 4 * np.pi, n)
+    return (total + delta) / 2, (total - delta) / 2
+
+
+@pytest.mark.parametrize("weights", [None, (1.0, 0.2, 2.0)])
+def test_matches_the_empirical_density_of_a_long_record(weights):
+    ta, tb = _synthetic_pair()
+    d = ta - tb
+    m = np.array([1.0, np.exp(1j * d).mean(), np.exp(2j * d).mean()])
+    emp = joint_density_from_states(
+        weighted_multifreq_state(ta, weights=weights), weighted_multifreq_state(tb, weights=weights)
+    )
+    model = long_run_joint_density(m, weights=weights)
+    surviving = np.abs(model) > 0
+    np.testing.assert_allclose(emp[surviving], model[surviving], atol=1e-10)   # exact up to rounding
+    assert np.abs(emp[~surviving]).max() < 0.01                                # sampling noise only
+
+
+def test_is_a_density_and_gives_zero_information_when_uncoupled():
+    rho = long_run_joint_density(np.array([1.0, 0.0, 0.0]))
+    assert rho.shape == (9, 9)
+    assert np.trace(rho).real == pytest.approx(1.0)
+    np.testing.assert_allclose(rho, rho.conj().T)
+    assert coupling_qmi(rho, dims=(3, 3)) == pytest.approx(0.0, abs=1e-10)
+
+
+def test_qubit_case_carries_the_first_moment_only():
+    rho = long_run_joint_density(np.array([1.0, 0.4 + 0.1j]), harmonics=(1,))
+    assert rho.shape == (4, 4)
+    assert rho[2, 1] == pytest.approx((0.4 + 0.1j) / 4)   # |1>_A|0>_B against |0>_A|1>_B
+
+
+def test_information_depends_on_the_relative_phase():
+    q = [coupling_qmi(long_run_joint_density(np.array([1.0, 0.3, 0.3 * np.exp(1j * b)])), dims=(3, 3))
+         for b in (0.0, np.pi)]
+    assert q[0] == pytest.approx(0.0484, abs=2e-4)   # values found on 2026-11-11
+    assert q[1] == pytest.approx(0.0554, abs=2e-4)
+
+
+def test_too_few_moments_is_rejected():
+    with pytest.raises(ValueError, match="moments"):
+        long_run_joint_density(np.array([1.0, 0.3]))
