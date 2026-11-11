@@ -35,7 +35,8 @@ whole protocol and writes eight files to the output directory, in this order:
     the mean numbers of valid records and of null differences at that duration.
     The experiment ``trap`` has no row.
 ``run_metadata.json``
-    The resolved configuration, the software versions, the solved settings and
+    The resolved configuration and the path of its file relative to the
+    repository, the software versions, the solved settings and
     the comparisons that were not made, with the reason for each. Each solved
     setting that comes from a solver records the law it was matched on
     (``matched_on``, ``"discretised scheme"``) and the step (``matched_dt``).
@@ -1138,6 +1139,37 @@ def write_reliability(
     return rows
 
 
+def portable_path(path: Path) -> str:
+    """Path of a file as it is recorded in the results.
+
+    A path inside the repository is written relative to the repository root,
+    with forward slashes. The results are committed and can be published, and
+    an absolute path would record the directory layout of the machine that
+    made the run instead of the location of the file in the project. A path
+    outside the repository has no such relative form and is written as given.
+
+    Parameters
+    ----------
+    path : Path
+        File whose location is recorded.
+
+    Returns
+    -------
+    recorded : str
+        Repository-relative POSIX path, or ``str(path)`` when the file lies
+        outside the repository.
+
+    Examples
+    --------
+    >>> portable_path(DEFAULT_CONFIG)
+    'config/base.yaml'
+    """
+    try:
+        return Path(path).resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def _git_commit() -> dict[str, Any]:
     """Commit hash of the repository and whether the working tree has changes."""
     try:
@@ -1187,7 +1219,7 @@ def write_metadata(
     quick : bool
         Whether ``--quick`` was given.
     config_path : Path
-        Configuration file read.
+        Configuration file read. It is recorded through :func:`portable_path`.
     timestep_seed : int
         Root seed of the time-step check.
     plan : sequence of PlannedComparison
@@ -1207,7 +1239,7 @@ def write_metadata(
         git = _git_commit()
         metadata = {
             "config": section,
-            "config_path": str(config_path),
+            "config_path": portable_path(config_path),
             "quick": quick,
             "git_commit": git["commit"],
             "git_dirty": git["dirty"],

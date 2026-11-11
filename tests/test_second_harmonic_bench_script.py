@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from scripts.run_second_harmonic_bench import main
+from scripts.run_second_harmonic_bench import REPO_ROOT, main, portable_path
 
 
 def _rows(path):
@@ -263,3 +263,20 @@ def test_timestep_check_reports_the_gap_to_the_scheme(quick_run):
                 assert float(row[f"abs_m{h}_gap_discrete_se"]) == pytest.approx(
                     gap, rel=1e-9
                 )
+
+
+def test_metadata_records_the_configuration_relative_to_the_repository(quick_run):
+    # The results are committed to a public repository: an absolute path would
+    # publish the layout of the machine that made the run.
+    meta = json.loads((quick_run / "run_metadata.json").read_text())
+    assert meta["config_path"] == "config/base.yaml"
+
+
+def test_portable_path_leaves_a_path_outside_the_repository_as_given(tmp_path):
+    inside = REPO_ROOT / "config" / "base.yaml"
+    assert portable_path(inside) == "config/base.yaml"
+    assert portable_path(REPO_ROOT / "config" / ".." / "config" / "base.yaml") == (
+        "config/base.yaml"
+    )
+    outside = tmp_path / "other.yaml"
+    assert portable_path(outside) == str(outside)
