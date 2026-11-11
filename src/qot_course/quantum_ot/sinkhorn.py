@@ -21,7 +21,7 @@ so the entropic QOT plan is the **Umegaki relative-entropy projection** of the
 matrix-exponential Gibbs kernel onto the coupling polytope. The Sinkhorn iterations of
 S10 are *iterative Bregman projections* under the KL divergence; their quantum analogue
 is the operator Bregman iteration under the Umegaki divergence (Peyre, Chizat, Vialard,
-Schmitzer, 2019; Pelikh, Gerolin et al.).
+Solomon, 2019; Feliciangeli, Gerolin, Portinale, 2023).
 
 For pedagogical clarity we solve the entropic SDP directly via cvxpy's
 :func:`cvxpy.von_neumann_entr` atom rather than running the explicit operator iteration.
@@ -30,9 +30,13 @@ The two approaches return the same plan when :math:`\\rho_A`, :math:`\\rho_B` an
 are different objects and their plans differ; see the notes of :func:`operator_sinkhorn`.
 
 References: M. Cuturi, "Sinkhorn distances", NeurIPS (2013); G. Peyre, L. Chizat, F.-X.
-Vialard, B. Schmitzer, "Quantum entropic regularization of matrix-valued optimal
-transport", European J. Appl. Math. 30, 1079 (2019); D. Trevisan, arXiv:2202.02091
-(2022); cvxpy docs.
+Vialard, J. Solomon, "Quantum entropic regularization of matrix-valued optimal
+transport", European J. Appl. Math. 30, 1079 (2019), doi:10.1017/S0956792517000274;
+D. Feliciangeli, A. Gerolin, L. Portinale, "A non-commutative entropic optimal transport
+approach to quantum composite systems at positive temperature", J. Funct. Anal. 285,
+109963 (2023), doi:10.1016/j.jfa.2023.109963; D. Trevisan, "Quantum optimal transport:
+an invitation", Boll. Unione Mat. Ital. 18, 347 (2025), doi:10.1007/s40574-024-00428-5;
+cvxpy docs.
 """
 
 from __future__ import annotations
@@ -327,11 +331,15 @@ def operator_sinkhorn(
     C]` all commute) this iteration and :func:`quantum_sinkhorn_sdp` both reduce to
     *classical* Sinkhorn and therefore return the **same** plan --- this is what
     ``test_operator_sinkhorn_equals_sdp_in_commuting_case`` verifies. In the general
-    **non-commuting** case the two are *not* known to coincide exactly: this fixed point
-    is the operator-scaling / quantum-Bregman solution (Georgiou & Pavon, 2015), whose
-    precise relationship to the von-Neumann-entropy SDP optimum is a genuine subtlety in
-    the literature. This routine does **not** claim to reproduce the SDP plan off the
-    commuting case --- treat it as the operator-scaling solution in its own right.
+    **non-commuting** case the two differ: this fixed point is the operator-scaling
+    solution (Georgiou & Pavon, 2015), of the form :math:`(X \\otimes Y) K (X \\otimes Y)`,
+    whereas the SDP optimum is the Umegaki projection of :math:`K`, of the form
+    :math:`\\exp(\\log K + U \\otimes I + I \\otimes V)`. Measured on a non-commuting
+    qubit pair at :math:`\\varepsilon = 0.5` (cost :math:`(X \\otimes I - I \\otimes Z)^2`,
+    two random states): Frobenius distance 0.062 between the plans, entropic objective
+    0.4987 at this fixed point against 0.4901 at the SDP optimum. This routine does
+    **not** reproduce the SDP plan off the commuting case --- treat it as the
+    operator-scaling solution in its own right.
 
     The square-root rescaling ``X M X = ρ`` (rather than a one-sided ``X M = ρ``) keeps
     every iterate Hermitian PSD, which is what makes ``P`` a valid (sub-normalised)
@@ -343,9 +351,6 @@ def operator_sinkhorn(
     69, 448 (2004). doi:10.1016/j.jcss.2004.06.003 (operator scaling).
     T. T. Georgiou, M. Pavon, "Positive contraction mappings for classical and quantum
     Schrödinger systems", J. Math. Phys. 56, 033301 (2015). doi:10.1063/1.4915289.
-    S. Cole, M. Lostaglio, K. Verma, M. M. Wilde, "Quantum Wasserstein distance based on
-    an optimization over separable states", IEEE Trans. Inf. Theory 69, 6657 (2023).
-    doi:10.1109/TIT.2023.3287993.
 
     Examples
     --------

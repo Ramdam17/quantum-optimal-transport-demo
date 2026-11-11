@@ -483,7 +483,8 @@ def joint_density_from_states(
 
     References
     ----------
-    Trevisan et al., "An optimal-transport approach to ...", arXiv:2202.02091 (2022).
+    D. Trevisan, "Quantum optimal transport: an invitation", Boll. Unione Mat. Ital.
+    18, 347 (2025), DOI:10.1007/s40574-024-00428-5.
     K. V. Mardia & P. E. Jupp, *Directional Statistics* (Wiley, 2000),
     DOI:10.1002/9780470316979.
     """
