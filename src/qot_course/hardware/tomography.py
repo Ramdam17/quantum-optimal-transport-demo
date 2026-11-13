@@ -8,9 +8,11 @@ the hardware state sits from the ideal.
 
 Method: linear inversion ``rho = 2**-n * sum_P <P> P`` over all Pauli strings
 ``P in {I, X, Y, Z}^{⊗ n}``, followed by projection to the nearest physical
-state (Hermitian eigenvalue clip + trace renormalisation). The eigen-clip is the
-fast approximation; the trace-norm-optimal projection is Smolin, Gambetta &
-Smith (2012), doi:10.1103/PhysRevLett.108.070502.
+state (Hermitian eigenvalue clip + trace renormalisation). The eigen-clip is a
+fast approximation. It is not the method of Smolin, Gambetta & Smith (2012),
+doi:10.1103/PhysRevLett.108.070502, which finds the nearest physical state in the
+2-norm (the maximum-likelihood state under additive Gaussian noise); this module
+does not implement that method.
 
 Conventions
 -----------
