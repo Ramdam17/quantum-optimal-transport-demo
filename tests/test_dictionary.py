@@ -34,7 +34,6 @@ NOT_DICTIONARY = {"04/04": "side-by-side of the linear and the semidefinite prog
 # converts a notebook, and the set ends empty.
 LEGACY = frozenset(
     {"00/02"}
-    | {"04/04"}
     | {"04/05", "04/08", "04/16", "04/20"}
 )
 
