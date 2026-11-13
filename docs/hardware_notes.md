@@ -54,8 +54,10 @@ backend, label, is_real = select_backend(use_hardware=USE_HARDWARE)
 print(f"Running on: {label}  (real hardware = {is_real})")
 ```
 
-- `USE_HARDWARE = False` (default) returns an offline `AerSimulator` carrying the `FakeManilaV2`
-  noise model — runs with no network, no credentials, in CI.
+- `USE_HARDWARE = False` (default) returns an offline `AerSimulator` carrying the `FakeMarrakesh`
+  noise model, the stored calibration of `ibm_marrakesh` (156-qubit Heron, native two-qubit gate
+  `cz`), the device of the real runs quoted in module 05. It runs with no network, no credentials,
+  in CI.
 - `USE_HARDWARE = True` returns the least-busy real QPU; if credentials are missing it falls back to
   a simulator and reports `is_real = False`, so the cell stays honest about where it actually ran.
 
@@ -97,18 +99,28 @@ The classical register is named `c` when you build the circuit with `QuantumCirc
 
 ## 5. What to expect
 
-- **A modern device is cleaner than the offline model.** The default `FakeManilaV2` is an old 5-qubit
-  noise model. A current processor does noticeably better. For reference, a one-shot run on
-  `ibm_marrakesh` (156-qubit Heron, 2026-05-30) gave, for a Bell pair:
+- **The offline model is the twin of the device of the real runs.** `select_backend` loads
+  `FakeMarrakesh` offline, and the real runs quoted in module 05 were made on `ibm_marrakesh`
+  (156-qubit Heron, 2026-05-30), one pass each. For a Bell pair:
 
-  | quantity | FakeManila (offline) | ibm_marrakesh | ideal |
+  | quantity | FakeMarrakesh (offline) | ibm_marrakesh | ideal |
   |---|---|---|---|
-  | fidelity | 0.90 | 0.96 | 1.00 |
-  | `I(A:B)` | 1.38 bits | 1.74 bits | 2.00 bits |
+  | fidelity | 0.97 | 0.96 | 1.00 |
+  | `I(A:B)` | 1.79 bits | 1.74 bits | 2.00 bits |
 
-  A consequence: a clean device can be *too good* for a noise demonstration — on `ibm_marrakesh` the
-  `05/05` depth sweep sat within shot-noise (the gates barely move the state), so the offline
-  FakeManila model is what makes the "more depth → more decoherence" principle visible.
+  The single-qubit gates of this device are clean, so a noise demonstration needs repeats. In
+  `05/05` the offline sweep runs each depth eight times and resolves the rise of the Bures
+  distance with depth; the real run, one pass per depth, did not resolve it.
+
+- **Module 01 keeps the older model.** `get_noisy_backend()` still defaults to the 5-qubit
+  `FakeManilaV2` (native two-qubit gate `cx`), because notebooks `01/11` and `01/15` read the
+  calibration values of that model.
+
+- **Every run leaves its counts.** Each run cell of module 05 calls `save_run_record`, which writes
+  the raw counts, the device, the date, the shots and, on a real QPU, the job identifier to one
+  JSON file in `results/hardware/`. The job identifiers and raw counts of the runs of 2026-05-30
+  were not kept (except the job identifier quoted in `05/04`), and the notebooks say so where they
+  quote those runs.
 
 - **Quota and queue.** Real runs consume your account's QPU allocation (the Open plan is limited) and
   pass through a queue. A small 1–2 qubit tomography job is seconds of QPU time, but be deliberate
