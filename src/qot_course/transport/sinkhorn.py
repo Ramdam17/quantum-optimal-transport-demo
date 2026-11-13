@@ -95,26 +95,6 @@ def sinkhorn(
     return (u[:, None] * K) * v[None, :]
 
 
-def sinkhorn_distance(
-    a: np.ndarray,
-    b: np.ndarray,
-    cost: np.ndarray,
-    epsilon: float,
-    n_iter: int = 500,
-    tol: float = 1e-9,
-) -> float:
-    """Entropic transport cost ``<C, P_eps>`` for the Sinkhorn plan.
-
-    Note: this is *not* a proper distance (no triangle inequality at fixed
-    :math:`\\varepsilon > 0`); the *debiased* Sinkhorn divergence
-    :math:`S_\\varepsilon(\\mu, \\nu) = \\mathrm{OT}_\\varepsilon(\\mu, \\nu)
-    - \\tfrac{1}{2}\\mathrm{OT}_\\varepsilon(\\mu, \\mu)
-    - \\tfrac{1}{2}\\mathrm{OT}_\\varepsilon(\\nu, \\nu)` (Feydy et al., 2019) does.
-    """
-    plan = sinkhorn(a, b, cost, epsilon, n_iter, tol)
-    return float(np.sum(plan * np.asarray(cost, dtype=float)))
-
-
 def sinkhorn_iterations_log(
     a: np.ndarray, b: np.ndarray, cost: np.ndarray, epsilon: float, n_iter: int = 200
 ) -> tuple[np.ndarray, np.ndarray]:

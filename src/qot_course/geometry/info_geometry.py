@@ -190,19 +190,3 @@ def wasserstein_interpolation_1d(
     counts, _ = np.histogram(xt, bins=edges)
     counts = counts.astype(float)
     return counts / counts.sum()
-
-
-# ----------------------------------------------------------------------------- #
-# Simplex plotting coordinates
-# ----------------------------------------------------------------------------- #
-def simplex_to_cartesian(p: np.ndarray) -> np.ndarray:
-    """Map a 3-vector on the 2-simplex to 2-D barycentric Cartesian coordinates.
-
-    Vertices placed at ``delta_1 = (0, 0)``, ``delta_2 = (1, 0)``, ``delta_3 = (0.5,
-    sqrt(3)/2)`` so the simplex appears as an equilateral triangle.
-    """
-    p = np.asarray(p, dtype=float).ravel()
-    v0 = np.array([0.0, 0.0])
-    v1 = np.array([1.0, 0.0])
-    v2 = np.array([0.5, np.sqrt(3.0) / 2.0])
-    return p[0] * v0 + p[1] * v1 + p[2] * v2
