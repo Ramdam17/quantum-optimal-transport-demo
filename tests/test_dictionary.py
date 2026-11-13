@@ -22,6 +22,7 @@ from tests.dictionary_helpers import (
     split_row,
     stray_tables,
 )
+from tests.dictionary_helpers import _tables
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -286,9 +287,60 @@ def test_row_over_45_words_is_reported(tmp_path):
     assert any("46 words" in p for p in check(bad))
 
 
-def test_real_dictionary_rows_parse():
-    rows = load_dictionary(ROOT / "notebooks" / "dictionary.ipynb")
-    assert all(r.earned_in for r in rows)
+def test_duplicate_rows_are_reported(tmp_path):
+    root = make_course(
+        tmp_path,
+        {"01": [row(BIT, QUBIT, "`01/01`"), row(BIT, QUBIT, "`01/02`")]},
+        {},
+    )
+    assert any("appears twice" in p for p in check(root))
+
+
+def test_dictionary_link_must_be_the_module_relative_path(tmp_path):
+    def course(target: str) -> Path:
+        cell = local_cell([(BIT, QUBIT)]).replace("../dictionary.ipynb", target)
+        return make_course(
+            tmp_path / target.replace("/", "_"),
+            {"01": [row(BIT, QUBIT, "`01/01`")]},
+            {"01/01": [cell]},
+        )
+
+    assert check(course("../dictionary.ipynb")) == []
+    for loose in ("../../notebooks/dictionary.ipynb", "other/dictionary.ipynb"):
+        assert any("exactly ../dictionary.ipynb" in p for p in check(course(loose)))
+
+
+def test_exemptions_must_name_existing_notebooks(tmp_path):
+    root = good_course(tmp_path)
+    problems = check(
+        root,
+        preview={"09/09": "r"},
+        not_dict={"08/08": "r"},
+        legacy={"07/07", "01/01"},
+    )
+    for ghost in ("09/09", "08/08", "07/07"):
+        assert any(ghost in p and "not a notebook" in p for p in problems)
+    assert not any("01/01" in p and "not a notebook" in p for p in problems)
+
+
+def test_real_dictionary_tables_are_well_formed():
+    # Passes on the empty table and keeps meaning something once it fills.
+    path = ROOT / "notebooks" / "dictionary.ipynb"
+    nb = json.loads(path.read_text(encoding="utf-8"))
+    headers = 0
+    for cell in nb["cells"]:
+        if cell["cell_type"] != "markdown":
+            continue
+        for header, _ in _tables("".join(cell["source"])):
+            headers += 1
+            assert [normalise(c) for c in header] == [
+                "Classical",
+                "Quantum",
+                "Earned in",
+            ]
+    assert headers >= 1
+    for r in load_dictionary(path):
+        assert r.classical and r.quantum and r.earned_in
 
 
 def test_course_dictionary_is_consistent():

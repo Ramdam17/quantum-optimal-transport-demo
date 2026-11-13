@@ -36,6 +36,9 @@ _SEPARATOR_CELL = re.compile(r"^:?-{1,}:?$")
 _MODULE_HEADING = re.compile(r"^#{1,6}\s+Module\s+(\d{2})\b")
 # A markdown link whose target ends in the dictionary notebook file name.
 _LINK = re.compile(r"\]\([^)\s]*" + re.escape(LINK_TARGET) + r"[^)]*\)")
+# The one target a notebook of a module folder may use for that link.
+EXPECTED_LINK = "../" + LINK_TARGET
+_LINK_TARGET_OF = re.compile(r"\]\(([^)\s]*" + re.escape(LINK_TARGET) + r")[^)]*\)")
 
 
 @dataclass(frozen=True)
@@ -308,7 +311,23 @@ def check_course(
     problems: list[str] = []
     parsed = _parse_dictionary(notebooks_root / DICTIONARY_FILE)
     notebooks = _course_notebooks(notebooks_root)
-    table = {(row.classical, row.quantum): row for row, _ in parsed}
+    table: dict[tuple[str, str], Row] = {}
+    for row, _ in parsed:
+        key = (row.classical, row.quantum)
+        if key in table:
+            problems.append(
+                f"Row '{row.classical}' | '{row.quantum}' appears twice in the "
+                "dictionary notebook."
+            )
+        table.setdefault(key, row)
+    for name, ids in (
+        ("preview_only", preview_only),
+        ("not_dictionary", not_dictionary),
+        ("legacy", legacy),
+    ):
+        for nb_id in sorted(ids):
+            if nb_id not in notebooks:
+                problems.append(f"{name} names {nb_id}, which is not a notebook.")
 
     previous_first = ""
     for row, module in parsed:
@@ -342,6 +361,13 @@ def check_course(
     for nb_id, path in notebooks.items():
         is_legacy = nb_id in legacy
         cell = dictionary_cell(path)
+        if cell is not None:
+            for target in _LINK_TARGET_OF.findall(cell):
+                if target != EXPECTED_LINK:
+                    problems.append(
+                        f"{nb_id}: the dictionary cell links to {target}; it must "
+                        f"link to exactly {EXPECTED_LINK}."
+                    )
         if cell is not None and PLAIN_PATH not in cell:
             problems.append(
                 f"{nb_id}: the dictionary cell links to {LINK_TARGET} but does "
