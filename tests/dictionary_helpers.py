@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Collection, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -282,7 +282,6 @@ def check_course(
     notebooks_root: Path,
     preview_only: Mapping[str, str],
     not_dictionary: Mapping[str, str],
-    legacy: Collection[str],
 ) -> list[str]:
     """Check the dictionary notebook and every notebook against each other.
 
@@ -298,10 +297,6 @@ def check_course(
         Notebooks that hold a Classical | Quantum table which is not the
         dictionary (identifier to reason). They are exempt from the stray-table
         check only.
-    legacy : collection of str
-        Notebooks that still hold an old table. They are exempt from the
-        stray-table check and from the obligation to display the rows that
-        name them, and from nothing else.
 
     Returns
     -------
@@ -323,7 +318,6 @@ def check_course(
     for name, ids in (
         ("preview_only", preview_only),
         ("not_dictionary", not_dictionary),
-        ("legacy", legacy),
     ):
         for nb_id in sorted(ids):
             if nb_id not in notebooks:
@@ -359,7 +353,6 @@ def check_course(
             )
 
     for nb_id, path in notebooks.items():
-        is_legacy = nb_id in legacy
         cell = dictionary_cell(path)
         if cell is not None:
             for target in _LINK_TARGET_OF.findall(cell):
@@ -373,7 +366,7 @@ def check_course(
                 f"{nb_id}: the dictionary cell links to {LINK_TARGET} but does "
                 f"not write the plain path {PLAIN_PATH}."
             )
-        if not is_legacy and nb_id not in not_dictionary:
+        if nb_id not in not_dictionary:
             for index in stray_tables(path):
                 problems.append(
                     f"{nb_id}: cell {index} holds a Classical | Quantum table "
@@ -394,8 +387,8 @@ def check_course(
                     "cell does not name this notebook."
                 )
 
-        if is_legacy or nb_id in preview_only:
-            if nb_id in preview_only and not is_legacy and not shown:
+        if nb_id in preview_only:
+            if not shown:
                 problems.append(f"{nb_id}: is preview-only but displays no row.")
             continue
         shown_set = set(shown)

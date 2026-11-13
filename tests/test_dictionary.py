@@ -30,9 +30,6 @@ ROOT = Path(__file__).resolve().parents[1]
 PREVIEW_ONLY = {"00/02": "section 6 announces the thread; no row is earned there"}
 # Notebooks whose Classical | Quantum table is not the dictionary.
 NOT_DICTIONARY = {"04/04": "side-by-side of the linear and the semidefinite program"}
-# Notebooks that still hold an old table. One entry leaves with each commit that
-# converts a notebook, and the set ends empty.
-LEGACY: frozenset[str] = frozenset()
 
 HEADER = "| Classical | Quantum | Earned in |\n|---|---|---|\n"
 BIT = "bit ($0$ or $1$)"
@@ -96,8 +93,8 @@ def make_course(
     return root
 
 
-def check(root: Path, preview=None, not_dict=None, legacy=()) -> list[str]:
-    return check_course(root, preview or {}, not_dict or {}, legacy)
+def check(root: Path, preview=None, not_dict=None) -> list[str]:
+    return check_course(root, preview or {}, not_dict or {})
 
 
 def good_course(tmp_path: Path) -> Path:
@@ -241,8 +238,7 @@ def test_notebook_must_show_every_row_that_names_it(tmp_path):
     )
     problems = check(root)
     assert any("does not display the row 'c2'" in p for p in problems)
-    # A legacy notebook is exempt from this obligation, a preview-only one too.
-    assert check(root, legacy={"01/01"}) == []
+    # A preview-only notebook is exempt from this obligation.
     assert check(root, preview={"01/01": "reason"}) == []
 
 
@@ -272,7 +268,6 @@ def test_stray_table_is_reported_unless_exempt(tmp_path):
     nb.write_text(json.dumps(data))
     assert any("without a link" in p for p in check(root))
     assert check(root, not_dict={"02/01": "reason"}) == []
-    assert check(root, legacy={"02/01"}) == []
 
 
 def test_rows_are_in_course_order_and_in_their_module(tmp_path):
@@ -328,11 +323,10 @@ def test_exemptions_must_name_existing_notebooks(tmp_path):
     root = good_course(tmp_path)
     problems = check(
         root,
-        preview={"09/09": "r"},
+        preview={"09/09": "r", "01/01": "r"},
         not_dict={"08/08": "r"},
-        legacy={"07/07", "01/01"},
     )
-    for ghost in ("09/09", "08/08", "07/07"):
+    for ghost in ("09/09", "08/08"):
         assert any(ghost in p and "not a notebook" in p for p in problems)
     assert not any("01/01" in p and "not a notebook" in p for p in problems)
 
@@ -358,4 +352,4 @@ def test_real_dictionary_tables_are_well_formed():
 
 
 def test_course_dictionary_is_consistent():
-    assert check_course(ROOT / "notebooks", PREVIEW_ONLY, NOT_DICTIONARY, LEGACY) == []
+    assert check_course(ROOT / "notebooks", PREVIEW_ONLY, NOT_DICTIONARY) == []
