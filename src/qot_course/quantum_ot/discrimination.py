@@ -218,8 +218,10 @@ def matched_plv_ensembles(
         knob), use :func:`~qot_course.quantum_ot.capstone.sweep_coupling_measures`; this
         function is for the orthogonal *discrimination* question.
 
-    Use a large ``n`` (the experiment uses ``80000``): PLV and the circular moments are
-    Monte-Carlo estimates whose error shrinks like :math:`1/\sqrt{n}`, and the thesis requires
+    Use a large ``n``. Notebook ``04/15`` draws 150,000 samples per ensemble; the test suite
+    draws 1,200,000 so that its margins hold for every seed; the example below draws 80,000
+    to stay fast. PLV and the circular moments are Monte-Carlo estimates whose error shrinks
+    like :math:`1/\sqrt{n}`, and the thesis requires
     the *matched* quantities (PLV, naive QMI) to agree to within ``0.02`` while the *separated*
     quantity (rich QMI) differs by much more.
 
