@@ -26,6 +26,8 @@ htmlcov/
 data/
 outputs/
 logs/
+# Run records written by the module 05 notebooks (one JSON file per run)
+/results/hardware/
 .env
 .secret
 *.key
