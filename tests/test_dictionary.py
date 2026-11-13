@@ -32,9 +32,7 @@ PREVIEW_ONLY = {"00/02": "section 6 announces the thread; no row is earned there
 NOT_DICTIONARY = {"04/04": "side-by-side of the linear and the semidefinite program"}
 # Notebooks that still hold an old table. One entry leaves with each commit that
 # converts a notebook, and the set ends empty.
-LEGACY = frozenset(
-    {"04/20"}
-)
+LEGACY: frozenset[str] = frozenset()
 
 HEADER = "| Classical | Quantum | Earned in |\n|---|---|---|\n"
 BIT = "bit ($0$ or $1$)"
@@ -172,6 +170,26 @@ def test_notebook_without_cell_has_no_rows(tmp_path):
     assert dictionary_cell(path) is None
     assert displayed_rows(path) == []
     assert stray_tables(path) == []
+
+
+def test_link_without_table_displays_no_row(tmp_path):
+    # A notebook may link to the dictionary without earning a row: its cell then
+    # holds the lead and the path and no table, and the checker must accept it.
+    cell = (
+        f"**Dictionary.** See [the dictionary](../dictionary.ipynb) (`{PLAIN_PATH}`).\n"
+    )
+    root = make_course(
+        tmp_path,
+        {"01": [row(BIT, QUBIT, "`01/01`")]},
+        {
+            "01/01": ["# One\n", local_cell([(BIT, QUBIT)])],
+            "01/02": ["# Two\n", cell],
+        },
+    )
+    path = root / "01_Module" / "02_title.ipynb"
+    assert dictionary_cell(path) == cell
+    assert displayed_rows(path) == []
+    assert check(root) == []
 
 
 def test_consistent_course_has_no_violation(tmp_path):
