@@ -1,11 +1,10 @@
 # Global defaults shared across sessions. Session configs override these.
 seed: 42
 paths:
-  summaries_dir: "summaries"
   docs_dir: "docs"
 
 # Capstone simulation defaults (used by sweep_coupling_measures and the
-# 04/12–04/13 notebooks).  duration_s controls Monte-Carlo averaging quality:
+# 04/13–04/14 notebooks).  duration_s controls Monte-Carlo averaging quality:
 # shorter values speed up tests; longer values tighten the Spearman correlation.
 capstone:
   sweep_duration_s: 200.0   # default simulation duration per K value (seconds)
@@ -15,9 +14,9 @@ capstone:
 # Free-second-harmonic bench (scripts/run_second_harmonic_bench.py).
 second_harmonic_bench:
   model:
-    omega_1: 1.0        # rad/s, as in notebook 04/11
-    omega_2: 1.2        # rad/s, as in notebook 04/11
-    noise_std: 0.3      # rad / sqrt(s), as in notebook 04/11
+    omega_1: 1.0        # rad/s, as in notebook 04/12
+    omega_2: 1.2        # rad/s, as in notebook 04/12
+    noise_std: 0.3      # rad / sqrt(s), as in notebook 04/12
     dt: 0.05            # s, Euler-Maruyama step
     burn_in_s: 50.0     # s discarded before the analysed record
   solver:
@@ -33,7 +32,7 @@ second_harmonic_bench:
     false_alarm_rate: 0.05       # two-sided
     reliability_threshold: 0.8   # usual power convention, not a derived quantity
     min_first_moment: 0.05       # heuristic: relative-phase numbers are undefined below it
-  weight_sets:                   # the two channel weightings of notebook 04/17
+  weight_sets:                   # the two channel weightings of notebook 04/18
     qmi_weighted_02: [1.0, 0.2, 2.0]
     qmi_weighted_05: [1.0, 0.5, 2.0]
   detection:

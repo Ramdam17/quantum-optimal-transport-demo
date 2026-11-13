@@ -1,1 +1,1 @@
-"""Information geometry tools for the QOT course (S6)."""
+"""Information geometry tools for the QOT course (module 02)."""

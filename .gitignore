@@ -12,7 +12,7 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints/
 
-# LaTeX build artifacts (PDFs are regenerated from .tex / build_summary)
+# LaTeX build artifacts
 *.aux
 *.log
 *.out
@@ -20,13 +20,14 @@ htmlcov/
 *.fdb_latexmk
 *.synctex.gz
 *.pdf
-summaries/*.tex
 
 
 # Data / outputs / secrets
 data/
 outputs/
 logs/
+# Run records written by the module 05 notebooks (one JSON file per run)
+/results/hardware/
 .env
 .secret
 *.key

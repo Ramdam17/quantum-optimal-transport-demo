@@ -1,4 +1,4 @@
-"""S15 capstone --- coupling measures on a synthetic Kuramoto dyad.
+"""Capstone --- coupling measures on a synthetic Kuramoto dyad.
 
 We simulate two coupled Kuramoto oscillators with stochastic noise, build a bipartite
 density matrix from their phases by mapping each oscillator to a phase-coherent qubit
@@ -7,9 +7,9 @@ and compare four candidate coupling measures against the known injected coupling
 strength :math:`K`:
 
 - **Quantum mutual information** :math:`I(A{:}B) = S(\\rho_{AB} \\| \\rho_A \\otimes \\rho_B)`
-  --- the principal *information-theoretic* coupling measure (S7).
+  --- the principal *information-theoretic* coupling measure (``02/11``).
 - **Bures-coupling** :math:`d_B(\\rho_{AB}, \\rho_A \\otimes \\rho_B)` --- a
-  *transport-theoretic* coupling measure (S11 bridge: Bures = Wasserstein on PSD
+  *transport-theoretic* coupling measure (the bridge of ``03/13``: Bures = Wasserstein on PSD
   matrices).
 - **Phase-locking value** :math:`\\mathrm{PLV} = |\\langle e^{i(\\theta_A - \\theta_B)}\\rangle|`
   --- the standard classical baseline in neuroscience.
@@ -132,7 +132,7 @@ def coupling_qmi(rho_ab: np.ndarray, dims: tuple[int, int] = (2, 2)) -> float:
 def coupling_bures(rho_ab: np.ndarray, dims: tuple[int, int] = (2, 2)) -> float:
     """Bures-coupling :math:`d_B(\\rho_{AB}, \\rho_A \\otimes \\rho_B)`.
 
-    A transport-theoretic coupling measure (S11 bridge). Zero iff
+    A transport-theoretic coupling measure (the bridge of ``03/13``). Zero iff
     :math:`\\rho_{AB} = \\rho_A \\otimes \\rho_B`.
     """
     rho_a = partial_trace(rho_ab, keep=[0], dims=list(dims))
@@ -155,8 +155,8 @@ def sweep_coupling_measures(
     defined in this module.  Returns a dictionary whose five arrays are all of
     length ``G = len(k_grid)``.
 
-    This function is the computational core that feeds **notebook 04/12** (four-measure
-    sweep: QMI, Bures, PLV, corr against K) and **notebook 04/13** (the *[C] redundancy
+    This function is the computational core that feeds **notebook 04/13** (four-measure
+    sweep: QMI, Bures, PLV, corr against K) and **notebook 04/14** (the *[C] redundancy
     reveal*: with the naive phase embedding the QMI is near-monotone in PLV, so
     ``Spearman(PLV, QMI) ~ 1`` across the sweep --- meaning the quantum measure cannot
     outperform PLV on this embedding by construction; the embedding encodes
@@ -192,7 +192,7 @@ def sweep_coupling_measures(
     When to use
     -----------
     Use this function whenever you need all four measures evaluated consistently
-    across a coupling grid (e.g. to produce the 04/12 sweep figure or the 04/13
+    across a coupling grid (e.g. to produce the 04/13 sweep figure or the 04/14
     Spearman scatter).  If you only need one measure at a single K, call the
     individual :func:`coupling_qmi`, :func:`coupling_bures`, :func:`plv`, or
     :func:`cosine_correlation` directly.

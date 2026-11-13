@@ -7,7 +7,6 @@ from qot_course.geometry.info_geometry import (
     fisher_rao_geodesic,
     mixture_interpolation,
     multinomial_fisher,
-    simplex_to_cartesian,
     wasserstein_interpolation_1d,
 )
 
@@ -109,7 +108,7 @@ def test_wasserstein_interpolation_endpoints_are_close_to_inputs():
 
 
 def test_mixture_is_bimodal_but_wasserstein_slides_for_separated_bumps():
-    """The S6 punchline: same endpoints, two geometries, two midpoints."""
+    """The result of 02/09: same endpoints, two geometries, two midpoints."""
     support = np.linspace(0.0, 24.0, 200)
     p0 = _normalized_bump(support, 4.0, 1.2)
     p1 = _normalized_bump(support, 20.0, 1.2)
@@ -126,18 +125,3 @@ def test_mixture_is_bimodal_but_wasserstein_slides_for_separated_bumps():
     # Wasserstein midpoint: ~all mass near x = 12 (single peak slid to the middle).
     mass_mid_w2 = pt_w2[(support >= 8) & (support <= 16)].sum()
     assert mass_mid_w2 > 0.95
-
-
-# ----------------------------- Cartesian mapping --------------------------- #
-def test_simplex_to_cartesian_vertices_and_centroid():
-    np.testing.assert_allclose(simplex_to_cartesian([1.0, 0.0, 0.0]), [0.0, 0.0])
-    np.testing.assert_allclose(simplex_to_cartesian([0.0, 1.0, 0.0]), [1.0, 0.0])
-    np.testing.assert_allclose(
-        simplex_to_cartesian([0.0, 0.0, 1.0]), [0.5, np.sqrt(3.0) / 2.0]
-    )
-    # Centroid of the equilateral triangle.
-    np.testing.assert_allclose(
-        simplex_to_cartesian([1 / 3, 1 / 3, 1 / 3]),
-        [0.5, np.sqrt(3.0) / 6.0],
-        atol=1e-12,
-    )

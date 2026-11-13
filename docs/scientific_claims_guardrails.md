@@ -21,8 +21,8 @@ Each entry gives a claim you **may** make, the nearby claim you **may not**, and
 - An **embedding** is the recipe that writes the two phases into a quantum state. The naive
   phase-qubit embedding carries the first moment only. The multi-frequency qutrit embedding carries
   the first two, with equal weights or with chosen ones; "the weighted embedding" is the one of
-  `04/17`, with weights (1, 0.2, 2).
-- An **ensemble** is a set of sampled pairs of phases. The two **matched-PLV ensembles** of `04/15`
+  `04/18`, with weights (1, 0.2, 2).
+- An **ensemble** is a set of sampled pairs of phases. The two **matched-PLV ensembles** of `04/16`
   share their first circular moment, hence their expected PLV, and differ in the second. The **gap**
   is the difference in quantum mutual information between them.
 - A **nat** is the unit of information counted with natural logarithms; one nat is about 1.44 bits.
@@ -30,7 +30,7 @@ Each entry gives a claim you **may** make, the nearby claim you **may not**, and
 - The **area under the curve** (AUC) is the probability that an ensemble with the structure has a
   larger value of a statistic than an ensemble without it; it ignores the scale of the statistic. The
   **detection rate** is the fraction of observed differences that fall outside the central 95 % of
-  the differences obtained when there is nothing to find. Both are defined in `04/15`.
+  the differences obtained when there is nothing to find. Both are defined in `04/16`.
 - **σ_stat** is the shot-noise error bar of one hardware estimate of a mutual information. A gap is
   a difference of two estimates, so its **band** is √2·σ_stat.
 
@@ -41,28 +41,28 @@ Each entry gives a claim you **may** make, the nearby claim you **may not**, and
 **May:** On synthetic signals, a quantum coupling measure reads coupling structure that PLV cannot,
 **when its embedding carries the second harmonic**. The mutual information of the multi-frequency
 qutrit embedding differs between two ensembles that have **identical PLV by construction** and a
-different second circular moment (`04/15`), and it detects a coupling carried by the second harmonic
-alone, where the long-run PLV is zero (`04/16`). On the naive phase-qubit embedding, the quantum
-measures are functions of PLV (`04/13`).
+different second circular moment (`04/16`), and it detects a coupling carried by the second harmonic
+alone, where the long-run PLV is zero (`04/17`). On the naive phase-qubit embedding, the quantum
+measures are functions of PLV (`04/14`).
 
 **May not:**
 - "Quantum optimal transport beats PLV." — PLV is one classical statistic among several. The
-  second-harmonic PLV reads the same structure, from fewer samples (`04/15`) and shorter records
-  (`04/16`) than the equal-weight embedding needs. The weighted embedding of `04/17` comes level
+  second-harmonic PLV reads the same structure, from fewer samples (`04/16`) and shorter records
+  (`04/17`) than the equal-weight embedding needs. The weighted embedding of `04/18` comes level
   with it and does not pass it.
 - "Only quantum optimal transport can see this difference." — False: the second-harmonic PLV reads
   the same difference.
 - "The quantum measure is the more sensitive one." — On the AUC, the score that ignores scale, the
   course found no case where a quantum measure ranks the records better than the matching classical
-  statistic. Where the detection rate of the weighted measure comes out a little higher, `04/17`
+  statistic. Where the detection rate of the weighted measure comes out a little higher, `04/18`
   traces it to the scale of the statistic and not to a better ranking. On the hand-built ensembles of
-  `04/15` the equal-weight quantum measure needed at least a hundred times more samples than the
+  `04/16` the equal-weight quantum measure needed at least a hundred times more samples than the
   second-harmonic PLV.
 - "The quantum measures read everything a classical statistic of the two harmonics reads." — They do
   not. The quantum mutual information and the Bures distance of the qutrit embedding read the cosine
   of the relative phase of the two harmonics, so they cannot tell a relative phase of +β from −β. A
-  classical sine moment can (`04/16`). This holds for the measures computed in the course, which are
-  functions of the state; `04/16` notes that the expectation value of a well-chosen observable could
+  classical sine moment can (`04/17`). This holds for the measures computed in the course, which are
+  functions of the state; `04/17` notes that the expectation value of a well-chosen observable could
   in principle read the sign.
 
 **Why:** What a coupling measure reads is set by the **embedding**, that is, by which structure of the
@@ -71,7 +71,7 @@ value of quantum optimal transport here is a **unified geometric framework**: on
 distance from independence, so that choosing which statistic to compute becomes choosing which
 embedding to use. That is a unification, and on the systems of the capstone it is not a gain in
 sensitivity. The evidence is one hand-built pair of ensembles and one model of coupled oscillators,
-all synthetic; the course did not test real recordings. (`04/13`–`04/17`.)
+all synthetic; the course did not test real recordings. (`04/14`–`04/19`.)
 
 ## 2. Quantum mutual information and entanglement
 
@@ -83,14 +83,14 @@ entropy).
 correlation (classical + quantum). For mixed states it includes classical correlations and is not, on
 its own, an entanglement measure.
 
-**Why:** The pure-state identity is a special case, not the general meaning. (`02/10`, `02/11`,
+**Why:** The pure-state identity is a special case, not the general meaning. (`02/11`, `02/12`,
 `05/04`.) Refs: Nielsen & Chuang ch. 11; Wilde, *Quantum Information Theory*, ch. 11.
 
 ## 3. The capstone's gaps on real hardware
 
 **May:** The two gaps are **computed on a classical computer**, with no read-out noise, from density
-matrices built on 150,000 phase samples per ensemble: 0.0044 nat with equal weights (`04/15`; 0.0049
-nat in the long run, `04/16`) and 0.0145 nat with the weighted embedding (`04/17`). The course then
+matrices built on 150,000 phase samples per ensemble: 0.0044 nat with equal weights (`04/16`; 0.0049
+nat in the long run, `04/17`) and 0.0145 nat with the weighted embedding (`04/18`). The course then
 measures how finely a device reads a mutual information, on a two-qubit Bell pair, and sets the two
 gaps against that resolution (`05/06`). The first is about a quarter of the band of a difference and
 the second about 0.85 of it, so one run would resolve neither.
@@ -113,7 +113,7 @@ for the equal-weight gap, and about 5.3 × 10⁴ for the weighted gap, on the of
 `05/06`; it would take more once the device has shrunk the gap (§5). These counts come from a
 two-qubit Bell-pair probe, while the capstone's states are pairs of qutrits, which need four qubits
 and a larger tomography. They are orders of magnitude, and neither an upper nor a lower bound.
-(`04/17`, `05/06`.)
+(`04/18`, `05/06`.)
 
 ## 4. Reading a "device below ideal" gap
 
@@ -151,14 +151,14 @@ without hiding it. (`05/06`.)
 
 ## 6. Two different yardsticks: signal samples and device shots
 
-**May:** Cite the **detection rates and areas under the curve** of `04/15` to `04/17` as statements
+**May:** Cite the **detection rates and areas under the curve** of `04/16` to `04/18` as statements
 about how many samples of the *signals* a statistic needs to tell two ensembles apart, and the
 **device** error bar (σ_stat) as a statement about hardware resolution.
 
 **May not:** Set a detection rate beside the shot noise of the device as if the two were on one
 scale, or present a detection rate computed classically on sampled signals as a hardware result. Do
 not quote a significance in σ for the capstone either, such as the "7.6σ" of an earlier version of
-the course: every statistic is scored with a detection rate and an area under the curve (`04/15`).
+the course: every statistic is scored with a detection rate and an area under the curve (`04/16`).
 
 **Why:** The first yardstick comes from the finite number of signal samples, and has nothing to do
 with a device. The second is the shot noise on a single hardware estimate of a state that is known

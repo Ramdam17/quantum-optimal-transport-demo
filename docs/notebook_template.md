@@ -11,7 +11,7 @@ simply / trivially / just". Celebrate what the learner just achieved; frame diff
    `from qot_course import viz; viz.use_course_style()`. **Never** hardcode hex — use `qot_course.colors`.
 3. **Body sections** (one concept), each: *intuition* (markdown) → *implementation* (code) →
    **"Read the figure / output"** (markdown — always explain what we see, kindly and concretely).
-4. **Your turn** (markdown): 2-3 small exercises, tiered easy→harder (no emoji labels — words).
+4. **Your turn** (markdown): four exercises, tiered easy→harder, the last one clearly harder than the others (no emoji labels — words).
 5. **Summary** (markdown): "What you built" bullets that *celebrate the accomplishment* + the dictionary rows the notebook earns, shown in a short cell that links to `notebooks/dictionary.ipynb` (the one complete table).
 6. **References** (markdown): cited papers; `Previous:` / `Next:` links within the module.
 

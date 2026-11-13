@@ -51,9 +51,11 @@ def amplitude_phase_state(theta: ArrayLike, amp: ArrayLike) -> NDArray[np.comple
     Each sample maps to :math:`\cos\alpha\,|0\rangle + \sin\alpha\,e^{i\theta}\,|1\rangle`,
     where the polar angle :math:`\alpha = \tfrac{\pi}{2}\,\mathrm{clip}(a, 0, 1)` encodes the
     (clipped, unit-scaled) amplitude envelope :math:`a` and the azimuth encodes the phase
-    :math:`\theta`. Amplitude ``0`` gives :math:`|0\rangle` (no phase weight); amplitude ``1``
-    gives :math:`e^{i\theta}|1\rangle` (the full phase qubit of
-    :func:`qot_course.quantum_ot.capstone.phase_qubit_state`, up to global phase).
+    :math:`\theta`. Amplitude ``0`` gives :math:`|0\rangle` and amplitude ``1`` gives
+    :math:`e^{i\theta}|1\rangle`, which is :math:`|1\rangle` up to a global phase: at both
+    ends the state no longer depends on the phase. Amplitude ``0.5`` gives the phase qubit of
+    :func:`qot_course.quantum_ot.capstone.phase_qubit_state`,
+    :math:`(|0\rangle + e^{i\theta}|1\rangle)/\sqrt 2`.
 
     Parameters
     ----------
@@ -280,7 +282,7 @@ def weighted_multifreq_state(
     Notes
     -----
     When to use
-        Use to **amplify the measurable QOT>PLV effect** (research extension 04/17): the naive
+        Use to **amplify the measurable QOT>PLV effect** (research extension 04/18): the naive
         equal weighting spreads the joint density's coupling across the first-moment (PLV)
         channel and the higher-moment channels alike. *Down-weighting* the first-harmonic
         channel (e.g. ``weights=(1.0, 0.2, 2.0)``) suppresses the dominant PLV channel --- which
@@ -289,7 +291,7 @@ def weighted_multifreq_state(
         significance. Use the equal-weight :func:`multifreq_state` for the faithful,
         unbiased directional embedding; use this when you are deliberately tuning *which* moment
         the coupling measure emphasises. The weighting does **not** create exclusivity over a
-        matched classical statistic (see 04/18): it improves *measurability*, not detection power.
+        matched classical statistic (see 04/20): it improves *measurability*, not detection power.
 
     Examples
     --------
@@ -348,7 +350,7 @@ def controlled_shift_unitary(d: int) -> NDArray[np.complex128]:
         Use to supply a fixed entangling unitary to :func:`entangling_joint_density` when
         probing whether entangling a (deterministic, classical-data) embedding can let a QOT
         measure see structure a same-order classical statistic cannot (research extension
-        04/18). The answer is no --- this constructor is the tool that *demonstrates* the
+        04/20). The answer is no --- this constructor is the tool that *demonstrates* the
         structural bound, not one that breaks it.
 
     Examples
@@ -378,7 +380,7 @@ def entangling_joint_density(
     :math:`\rho_{AB} = \mathbb{E}_t\bigl[\,U|\Psi(t)\rangle\langle\Psi(t)|U^\dagger\,\bigr]`.
     Unlike :func:`joint_density_from_states` (the special case :math:`U = I`), each per-sample
     state is entangled in general. The averaged state need not be: it equals
-    :math:`U \rho_{\text{plain}} U^\dagger`, and on the ensembles of 04/18 its partial
+    :math:`U \rho_{\text{plain}} U^\dagger`, and on the ensembles of 04/20 its partial
     transpose has no negative eigenvalue, so no entanglement is detected in it.
 
     Parameters
@@ -397,7 +399,7 @@ def entangling_joint_density(
     Notes
     -----
     When to use
-        Use to test the **structural bound** of the research extension (04/18): does entangling
+        Use to test the **structural bound** of the research extension (04/20): does entangling
         a deterministic embedding of *classical* phase data let a QOT measure detect a moment
         the embedding does not capture? It does not --- the gate is the same for every
         sample, so every matrix element of ``rho`` remains an empirical average of a

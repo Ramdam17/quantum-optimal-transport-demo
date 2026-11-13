@@ -1,9 +1,10 @@
-r"""The discriminating experiment --- two ensembles PLV cannot tell apart, QOT can (Plan F, 04/15).
+r"""The discriminating experiment --- two ensembles with one PLV and two second harmonics.
 
-This module is the **scientific crux** of the course: it builds two synthetic dyads with
-**identical phase-locking value by construction** but **different higher-order phase
-structure**, and shows that PLV (and the naive phase-qubit embedding) cannot tell them
-apart while a richer multi-frequency embedding's quantum mutual information can.
+This module builds two synthetic dyads with **identical phase-locking value by
+construction** but **different higher-order phase structure**. PLV and the naive
+phase-qubit embedding cannot tell them apart; the quantum mutual information of a richer
+multi-frequency embedding can, and so can a classical statistic of the second harmonic,
+which the capstone notebooks set beside it.
 
 The mechanism is *higher-order phase coupling*. We draw the phase difference
 :math:`\delta = \theta_A - \theta_B` from the truncated-Fourier circular density
@@ -108,7 +109,7 @@ def sample_phase_difference(
     -----
     When to use
         Use to generate phase differences with *prescribed* first and second circular
-        moments --- the building block of :func:`matched_plv_ensembles` and the 04/15
+        moments --- the building block of :func:`matched_plv_ensembles` and the 04/16
         discriminating experiment. When you only need a unimodal phase distribution with a
         single concentration parameter, the von Mises sampler
         (``numpy.random.Generator.vonmises``) is simpler; this two-harmonic density is the
@@ -205,7 +206,7 @@ def matched_plv_ensembles(
     Notes
     -----
     When to use
-        Use to produce the two ensembles compared in notebook 04/15 (and the thesis test):
+        Use to produce the two ensembles compared in notebook 04/16 (and the thesis test):
         feed each ``(theta_A, theta_B)`` pair to :func:`~qot_course.quantum_ot.capstone.plv`
         (matched), to the naive
         :func:`~qot_course.quantum_ot.capstone.joint_density_matrix` +
@@ -218,8 +219,10 @@ def matched_plv_ensembles(
         knob), use :func:`~qot_course.quantum_ot.capstone.sweep_coupling_measures`; this
         function is for the orthogonal *discrimination* question.
 
-    Use a large ``n`` (the experiment uses ``80000``): PLV and the circular moments are
-    Monte-Carlo estimates whose error shrinks like :math:`1/\sqrt{n}`, and the thesis requires
+    Use a large ``n``. Notebook ``04/16`` draws 150,000 samples per ensemble; the test suite
+    draws 1,200,000 so that its margins hold for every seed; the example below draws 80,000
+    to stay fast. PLV and the circular moments are Monte-Carlo estimates whose error shrinks
+    like :math:`1/\sqrt{n}`, and the thesis requires
     the *matched* quantities (PLV, naive QMI) to agree to within ``0.02`` while the *separated*
     quantity (rich QMI) differs by much more.
 

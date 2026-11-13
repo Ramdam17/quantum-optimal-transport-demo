@@ -65,3 +65,17 @@ def test_select_backend_hardware_without_creds_falls_back_honestly(monkeypatch):
     backend, label, is_real = rt.select_backend(use_hardware=True)
     assert isinstance(backend, AerSimulator)  # graceful fallback
     assert is_real is False  # and honest about it
+
+
+def test_select_backend_offline_default_is_the_marrakesh_twin(monkeypatch):
+    """Module 05 quotes ibm_marrakesh (Heron, cz); its offline twin must be that device's model."""
+    monkeypatch.delenv("IBM_QUANTUM_TOKEN", raising=False)
+    backend, label, is_real = rt.select_backend(use_hardware=False)
+    assert "FakeMarrakesh" in label
+    assert "cz" in backend.operation_names
+    assert is_real is False
+
+
+def test_noisy_backend_default_stays_manila_for_module_01():
+    """01/12 and 01/16 read FakeManilaV2 calibration for the qubit this backend uses."""
+    assert rt.get_noisy_backend().num_qubits == 5

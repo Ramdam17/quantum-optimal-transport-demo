@@ -40,12 +40,11 @@ The point of this course is for the learner to *understand*, not to collect answ
   `quantum_ot`, `geometry`, `viz`, `colors`). Validated by `tests/`.
 - `tests/` — `uv run pytest`.
 - `notebooks/dictionary.ipynb` — the one complete classical ↔ quantum dictionary; a notebook shows only the rows it earns and links to it, and `tests/test_dictionary.py` keeps the two consistent.
-- `docs/` — glossary, the notebook template, **`common_errors.md`** (learner intuition
+- `llms.txt` — a machine-readable index of every notebook (title · purpose · module). Use it to
+  find which notebook covers a concept and what it builds on.
+- `docs/` — the notebook template, **`common_errors.md`** (learner intuition
   traps), **`hardware_notes.md`** (running on real IBM QPUs), **`scientific_claims_guardrails.md`**
-  (what may and may not be claimed); **`llms.txt` (repo root)** is a machine-readable index of every
-  notebook (title · purpose · module) — use it to find which notebook covers a concept and what it
-  builds on.
-- `summaries/` — per-session PDF summary generators.
+  (what may and may not be claimed).
 
 ## Running things
 
@@ -64,6 +63,10 @@ optional and simulator-first (README → Credentials).
 - **NumPy-style docstrings**: imperative first sentence (fits an IDE tooltip), array **shapes**
   stated, **units** explicit (Hz, s, rad, µV), a "When to use" note for metrics, runnable examples,
   references with DOI.
+- **Units of information.** The entropies and divergences of `qot_course.infotheory` return
+  **bits** by default (`base=2`; pass `base=np.e` for nats). The coupling measures of the capstone
+  (`qot_course.quantum_ot.capstone`) and the objectives of the transport programs are in **nats**,
+  the unit of the natural logarithm the solvers use. One nat is $1/\ln 2 \approx 1.4427$ bits.
 - **One concept per notebook / one responsibility per file**; type hints on public signatures;
   `logging` (not `print`) in library code; random seeds fixed and documented.
 

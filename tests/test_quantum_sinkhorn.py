@@ -85,10 +85,37 @@ def test_quantum_sinkhorn_approaches_product_at_large_epsilon():
 
 
 # ----------------------------- Amari quantum bridge --------------------- #
-def test_amari_quantum_bridge_identity():
-    """ε * S_Umegaki(P_eps || K) = tr(C P_eps) - ε * S(P_eps).
+def _von_neumann_entropy_nats(state: np.ndarray) -> float:
+    vals = np.linalg.eigvalsh(0.5 * (state + state.conj().T))
+    vals = vals[vals > 1e-12]
+    return float(-np.sum(vals * np.log(vals)))
 
-    Both sides should agree to numerical precision at the entropic optimum.
+
+def test_amari_quantum_bridge_identity_holds_for_every_state():
+    """ε * S_Umegaki(P || K) = tr(C P) - ε * S(P) for any state P, since log K = -C/ε.
+
+    The identity is algebra, so it checks ``umegaki_kl_to_kernel`` and
+    ``matrix_gibbs_kernel`` against the two terms written out, on a state that no
+    solver produced. The optimum is checked by the two tests that follow.
+    """
+    C = quadratic_position_cost([0.0, 1.0])
+    eps = 0.3
+    K = matrix_gibbs_kernel(C, eps)
+    rng = np.random.default_rng(7)
+    raw = rng.normal(size=(4, 4)) + 1j * rng.normal(size=(4, 4))
+    state = raw @ raw.conj().T
+    state /= np.trace(state).real
+
+    lhs = eps * umegaki_kl_to_kernel(state, K)
+    rhs = float(np.real(np.trace(C @ state))) - eps * _von_neumann_entropy_nats(state)
+    assert lhs == pytest.approx(rhs, abs=1e-9)
+
+
+def test_entropic_optimum_with_a_pure_marginal_has_its_closed_form_value():
+    """With ρ_A pure the only coupling is ρ_A ⊗ ρ_B, so the optimum is known by hand.
+
+    For |+><+| and I/2 the product has cost tr(C P) = 1/2 and entropy ln 2, hence
+    ε * S_Umegaki(P_eps || K) = 1/2 - ε ln 2.
     """
     rho_a = density_matrix(KET_PLUS)
     rho_b = maximally_mixed(2)
@@ -96,66 +123,51 @@ def test_amari_quantum_bridge_identity():
     eps = 0.3
     _, plan = quantum_sinkhorn_sdp(rho_a, rho_b, C, eps)
     K = matrix_gibbs_kernel(C, eps)
-
-    # Left-hand side: ε * S_Umegaki(plan || kernel).
-    lhs = eps * umegaki_kl_to_kernel(plan, K)
-    # Right-hand side: transport cost - ε * von Neumann entropy.
-    transport = float(np.real(np.trace(C @ plan)))
-    vals = np.linalg.eigvalsh(0.5 * (plan + plan.conj().T))
-    vals = vals[vals > 1e-12]
-    s_plan = float(-np.sum(vals * np.log(vals)))
-    rhs = transport - eps * s_plan
-    assert lhs == pytest.approx(rhs, abs=1e-4)
+    np.testing.assert_allclose(plan, tensor(rho_a, rho_b), atol=1e-6)
+    assert eps * umegaki_kl_to_kernel(plan, K) == pytest.approx(
+        0.5 - eps * np.log(2.0), abs=1e-6
+    )
 
 
 def test_quantum_sinkhorn_plan_minimises_umegaki_kl_to_kernel():
-    """The entropic optimum minimises S_Umegaki(P || K) over feasible couplings.
+    """The entropic optimum minimises S_Umegaki(P || K) over the couplings.
 
-    Marginal-preserving perturbations along the bipartite 'cycle' direction must
-    increase the Umegaki KL.
+    Two mixed marginals that do not commute leave room to move: adding δ σ_i ⊗ σ_j,
+    with σ_i and σ_j Pauli matrices, changes neither marginal because both factors are
+    traceless. Each of the nine directions, in both senses and at two step sizes, must
+    increase the divergence. A pure marginal would leave no direction to try.
     """
-    rho_a = density_matrix(KET_PLUS)
-    rho_b = maximally_mixed(2)
+    identity = np.eye(2, dtype=complex)
+    paulis = (
+        np.array([[0, 1], [1, 0]], dtype=complex),
+        np.array([[0, -1j], [1j, 0]], dtype=complex),
+        np.array([[1, 0], [0, -1]], dtype=complex),
+    )
+    x, y, z = paulis
+    rho_a = 0.5 * (identity + 0.5 * x + 0.3 * z)
+    rho_b = 0.5 * (identity + 0.4 * z - 0.2 * y)
     C = quadratic_position_cost([0.0, 1.0])
     eps = 0.4
     _, plan = quantum_sinkhorn_sdp(rho_a, rho_b, C, eps)
     K = matrix_gibbs_kernel(C, eps)
     kl_star = umegaki_kl_to_kernel(plan, K)
 
-    # Build a small Hermitian "cycle" perturbation that preserves both marginals.
-    # A symmetric off-diagonal pair on the (00, 11) corners is marginal-preserving
-    # up to a sign in the trace (verify via partial traces below).
-    rng = np.random.default_rng(0)
-    for _ in range(5):
-        idx = rng.choice(4, 4, replace=False)
-        i1, i2, j1, j2 = idx
-        E = np.zeros((4, 4), dtype=complex)
-        E[i1, j1] = E[j1, i1] = 1.0
-        E[i2, j2] = E[j2, i2] = 1.0
-        E[i1, j2] = E[j2, i1] = -1.0
-        E[i2, j1] = E[j1, i2] = -1.0
-        # Project onto marginal-preserving directions: subtract the part with nonzero
-        # partial trace on either side. (Empirically: for random E, the projection is
-        # rarely exactly marginal-preserving, so we just check KL_star is locally minimal
-        # along the projected direction.)
-        delta = 0.005
-        perturbed = plan + delta * E
-        # Ensure PSD (otherwise S_Umegaki is undefined): re-symmetrise + clip.
-        perturbed = 0.5 * (perturbed + perturbed.conj().T)
-        eigs = np.linalg.eigvalsh(perturbed)
-        if eigs.min() <= 0.0:
-            continue
-        # Project the marginals back onto the constraint set via small linear correction
-        # so the comparison is fair. For pedagogical brevity here, we just check that
-        # PSD perturbations strictly increase KL when the constraints are preserved.
-        a_p = partial_trace(perturbed, keep=[0], dims=[2, 2])
-        b_p = partial_trace(perturbed, keep=[1], dims=[2, 2])
-        # Only test directions that are (approximately) marginal-preserving.
-        if (
-            np.linalg.norm(a_p - rho_a) < 1e-9
-            and np.linalg.norm(b_p - rho_b) < 1e-9
-        ):
-            assert umegaki_kl_to_kernel(perturbed, K) > kl_star - 1e-9
+    # The plan is a coupling, and it is not the product: there is something to minimise.
+    a_star = partial_trace(plan, keep=[0], dims=[2, 2])
+    b_star = partial_trace(plan, keep=[1], dims=[2, 2])
+    np.testing.assert_allclose(a_star, rho_a, atol=1e-8)
+    np.testing.assert_allclose(b_star, rho_b, atol=1e-8)
+    assert umegaki_kl_to_kernel(tensor(rho_a, rho_b), K) > kl_star + 1e-2
+
+    tried = 0
+    for sigma_a in paulis:
+        for sigma_b in paulis:
+            for delta in (-0.01, -0.005, 0.005, 0.01):
+                perturbed = plan + delta * np.kron(sigma_a, sigma_b)
+                assert np.linalg.eigvalsh(perturbed).min() > 0.0  # still a state
+                assert umegaki_kl_to_kernel(perturbed, K) > kl_star + 1e-6
+                tried += 1
+    assert tried == 36
 
 
 def test_umegaki_kl_to_kernel_zero_when_plan_equals_kernel():
@@ -179,8 +191,12 @@ def test_operator_sinkhorn_matches_marginals():
     rho_b = np.diag([0.3, 0.7]).astype(complex)
     C = quadratic_position_cost([0.0, 1.0])
     P, log = operator_sinkhorn(rho_a, rho_b, C, epsilon=0.3)
-    np.testing.assert_allclose(partial_trace(P, keep=[0], dims=[2, 2]), rho_a, atol=1e-8)
-    np.testing.assert_allclose(partial_trace(P, keep=[1], dims=[2, 2]), rho_b, atol=1e-8)
+    np.testing.assert_allclose(
+        partial_trace(P, keep=[0], dims=[2, 2]), rho_a, atol=1e-8
+    )
+    np.testing.assert_allclose(
+        partial_trace(P, keep=[1], dims=[2, 2]), rho_b, atol=1e-8
+    )
     assert log["marginal_errors"][-1] < 1e-8
     assert log["marginal_errors"][-1] <= log["marginal_errors"][0]
 

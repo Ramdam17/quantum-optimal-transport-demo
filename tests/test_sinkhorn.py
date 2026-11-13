@@ -10,7 +10,6 @@ from qot_course.transport.sinkhorn import (
     gibbs_kernel,
     kl_to_kernel,
     sinkhorn,
-    sinkhorn_distance,
     sinkhorn_iterations_log,
 )
 
@@ -57,7 +56,8 @@ def test_sinkhorn_approaches_lp_optimum_at_small_epsilon():
     a, b, cost = _setup(n=5, m=5, seed=1)
     lp_cost = float(ot.emd2(a, b, cost))
     eps_small = 0.02
-    sk_cost = sinkhorn_distance(a, b, cost, epsilon=eps_small, n_iter=2000)
+    plan = sinkhorn(a, b, cost, epsilon=eps_small, n_iter=2000)
+    sk_cost = float(np.sum(plan * cost))  # transport cost <C, P_eps> of the plan
     # Entropic cost relaxes the LP -> still close at small eps, but always >= LP cost
     # minus a bias proportional to eps * log(n*m).
     assert sk_cost == pytest.approx(lp_cost, rel=0.05, abs=0.05)

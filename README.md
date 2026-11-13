@@ -6,7 +6,7 @@ measure of how steadily two signals keep the same phase difference, and the test
 coupling measure built from QOT reads past it, with a classical statistic beside it at each test.
 
 The course is built **one concept per notebook**: short, focused "bricks" build progressively to a
-"synthesis" notebook, so each idea lands before the next arrives. **73 notebooks across 6 modules**,
+"synthesis" notebook, so each idea lands before the next arrives. **78 notebooks across 6 modules**,
 sized for ~1-hour sessions and a mixed-background audience, and meant to be worked through with an AI
 tutor alongside.
 
@@ -21,7 +21,7 @@ results.
 
 ## The capstone — how far quantum optimal transport reads past PLV
 
-The capstone (`11` to `18` in `notebooks/04_QuantumOptimalTransport/`) does not hand-wave its
+The capstone (`12` to `20` in `notebooks/04_QuantumOptimalTransport/`) does not hand-wave its
 question: can a quantum coupling measure read something the phase-locking value cannot?
 
 Three words carry the answer. Write Δ for the phase difference between two signals. PLV is the length
@@ -54,11 +54,25 @@ device model by default, and on the real device if you switch it on.
 ## Quick start
 
 ```bash
-uv sync --extra dev
-uv run pytest
+uv sync               # install the course into a local .venv folder
+uv run jupyter lab    # open the notebooks
 ```
 
-All deliverables (code, notebooks, summaries, glossary, the classical ↔ quantum dictionary, `notebooks/dictionary.ipynb`) are in
+Jupyter starts inside the project's environment, so its default kernel, *Python 3 (ipykernel)*, is
+the course's own. Begin with `notebooks/00_GettingStarted/01_environment_setup.ipynb`, which checks
+the installation, and run each notebook from top to bottom: they are committed without outputs. In an
+editor such as VS Code, choose the Python interpreter inside the project's `.venv` folder as the
+kernel.
+
+To run the tests as well:
+
+```bash
+uv sync --extra dev
+uv run pytest -m "not notebooks"    # the fast suite
+uv run pytest                       # also executes every notebook end to end (slow)
+```
+
+All deliverables (code, notebooks, the classical ↔ quantum dictionary, `notebooks/dictionary.ipynb`) are in
 English.
 
 ## How the course is structured

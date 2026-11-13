@@ -21,14 +21,14 @@ embedding being the recipe that writes the two signals into a quantum state. PLV
 the first circular moment of the phase difference, `|⟨e^{iΔθ}⟩|`. Two ensembles can share the same
 first moment, hence an *identical* PLV by construction, and differ in their second moment
 `⟨e^{2iΔθ}⟩`. The mutual information of a quantum embedding that carries both moments, the
-multi-frequency qutrit of `04/14`, then differs between them, while PLV and the naive phase-qubit
+multi-frequency qutrit of `04/15`, then differs between them, while PLV and the naive phase-qubit
 embedding, which carries the first moment only, give the same value for both. PLV is not the only
 classical statistic, though: the second-harmonic PLV, `|⟨e^{2iΔθ}⟩|`, reads the same difference, and
 from fewer samples than the qutrit embedding with equal weights needs. So the reason to bother is not
 sensitivity. It is that PLV and the second-harmonic PLV become two readings of one state, measured by
 one distance from independence, with the embedding as the dial that sets what is read.
 
-**Where the course shows it.** `04/13`–`04/17` (the redundancy reveal, the richer embedding, the
+**Where the course shows it.** `04/14`–`04/18` (the redundancy reveal, the richer embedding, the
 discriminating experiment, the test on coupled oscillators, and the weighted embedding).
 
 ## "A reconstructed state with fidelity below 1 means the device decohered."
@@ -54,7 +54,7 @@ quantum. For a **pure** state it happens to equal twice the entanglement entropy
 pair the "2 bits = maximal entanglement" reading is exact. For a general **mixed** state, QMI also
 counts classical correlations, so it is not an entanglement measure on its own.
 
-**Where the course shows it.** `02/10` (quantum mutual information), `02/11` (negative conditional
+**Where the course shows it.** `02/11` (quantum mutual information), `02/12` (negative conditional
 entropy), `05/04` (QMI on hardware).
 
 ## "The entropic plan should always smooth out as the regularisation goes to zero."
@@ -82,7 +82,7 @@ The value of quantum optimal transport here is the **unified geometric framework
 distance from independence with the embedding as the single dial that sets what the coupling measure
 reads. It is not an exclusive detecting power.
 
-**Where the course shows it.** `04/15`–`04/17` (the discriminating experiment, the accounting of the
+**Where the course shows it.** `04/16`–`04/18` (the discriminating experiment, the accounting of the
 capstone, and the weighted embedding).
 
 ## "More shots will fix the hardware error."
@@ -106,7 +106,7 @@ frontier).
 Fisher–Rao distance built from the Uhlmann fidelity `F` — not `1 − F`, and not its square. Keep track
 of whether a function returns the distance or its square.
 
-**Where the course shows it.** `02/12` (the Bures distance), `05/05` (Bures on hardware).
+**Where the course shows it.** `02/13` (the Bures distance), `05/05` (Bures on hardware).
 
 ---
 

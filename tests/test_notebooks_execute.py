@@ -1,13 +1,12 @@
 """Execute every 00–05 course notebook end-to-end, offline, to guard against silent breakage.
 
 Marked ``notebooks`` (slow): the fast inner loop deselects it with ``-m 'not notebooks'``;
-checkpoints run the full suite. Every cell runs on ``AerSimulator`` / ``FakeManilaV2`` (offline) —
+checkpoints run the full suite. Every cell runs on ``AerSimulator`` / a fake-device noise model (offline) —
 no network and no IBM credentials required. The notebook object is executed in memory, so the
 committed files stay output-free.
 
-Scope grows by plan: 00–01 (Plan C), 02 (Plan D), 03 (Plan E), 04 (Plan F), 05 (Plan I),
-module-01 mechanics layer / 19 notebooks (Plan K); later plans widen ``NOTEBOOK_GLOB``.
-See ``docs/superpowers/plans/2026-05-28-plan-c-foundations.md`` (decision C-3).
+``NOTEBOOK_GLOB`` covers the six module folders; ``notebooks/dictionary.ipynb`` holds no code and
+is checked by ``tests/test_dictionary.py``.
 """
 
 from __future__ import annotations

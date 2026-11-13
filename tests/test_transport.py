@@ -52,7 +52,7 @@ def test_one_to_many_splits_mass():
 
 
 def test_two_to_three_mass_splitting_yields_known_plan():
-    # Hand-computed optimum for the syllabus's canonical S8 example.
+    # Hand-computed optimum for the mass-splitting example of module 03.
     source = np.array([0.5, 0.5])
     target = np.array([1 / 3, 1 / 3, 1 / 3])
     cost = squared_euclidean_cost([0.0, 4.0], [1.0, 2.0, 3.0])

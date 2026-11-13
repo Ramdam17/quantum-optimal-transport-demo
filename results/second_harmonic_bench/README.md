@@ -30,7 +30,7 @@ A number that is undefined is written as an empty cell in the CSV files and as `
 | `qmi_naive` | Quantum mutual information of the embedding that carries the first harmonic only. |
 | `qmi_rich` | Quantum mutual information of the embedding that carries the first and the second harmonic. |
 | `bures_rich` | Bures distance between the joint density of the richer embedding and the product of its marginals. |
-| `qmi_weighted_02`, `qmi_weighted_05` | Quantum mutual information of the richer embedding with the two channel weightings of notebook 04/17, listed under `weight_sets` in the configuration. |
+| `qmi_weighted_02`, `qmi_weighted_05` | Quantum mutual information of the richer embedding with the two channel weightings of notebook 04/18, listed under `weight_sets` in the configuration. |
 
 The relative phase is undefined under two different rules, one per kind of value. For an exact long-run value it is undefined when `k1 = 0`, because the exact first moment is then zero and β has no direction to be measured from. For a simulated record it is undefined when the first moment of that record is below the threshold, whatever the setting.
 

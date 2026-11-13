@@ -1,7 +1,7 @@
 """Course plotting style and optimal-transport visualizations.
 
 A clean, high-contrast light style with vibrant accents, so figures read well
-both in notebooks and in the LaTeX PDF summaries. Each optimal-transport object
+in the notebooks. Each optimal-transport object
 gets its own, fully labelled figure (distributions, cost matrix, transport plan,
 mass flow) — never an unlabelled tangle.
 """
@@ -60,8 +60,9 @@ def plot_distributions(
     """Bar plot of source and target mass distributions over positions.
 
     When ``source_positions`` and ``target_positions`` are omitted or identical, the
-    bars are drawn side-by-side over the shared integer grid (S1 behaviour). When the
-    two distributions live on *different* position sets (the S8 Monge-fails case),
+    bars are drawn side-by-side over the shared integer grid (the default). When the
+    two distributions live on *different* position sets (the case of ``03/02``, where
+    Monge's problem has no solution),
     each bar sits at its own position with the target partially transparent.
     """
     source = np.asarray(source, dtype=float)
@@ -180,9 +181,9 @@ def plot_transport_arrows(
     one line per non-zero transport, its width and opacity proportional to the mass.
 
     Pass ``source_positions`` / ``target_positions`` when source and target live on
-    *different* position sets (e.g. the S8 mass-splitting example with 1 source atom
+    *different* position sets (e.g. the mass-splitting example of ``03/02`` with 1 source atom
     and 2 target atoms). When omitted, both rows use ``np.arange`` over their own
-    lengths (S1 behaviour, backward-compatible).
+    lengths (the default, backward-compatible).
     """
     source = np.asarray(source, dtype=float)
     target = np.asarray(target, dtype=float)
@@ -339,7 +340,7 @@ def plot_density_matrix(
 
 
 # --------------------------------------------------------------------------- #
-# Simplex plotting (S6 — information geometry)
+# Simplex plotting (module 02 — information geometry)
 # --------------------------------------------------------------------------- #
 _SIMPLEX_VERTICES_2D = np.array(
     [[0.0, 0.0], [1.0, 0.0], [0.5, np.sqrt(3.0) / 2.0]]
@@ -478,7 +479,7 @@ def plot_interpolation_panel(
 ) -> plt.Figure:
     """Plot one row per labelled interpolation (each a list of distributions over time).
 
-    Designed for the S6 "two geometries" comparison: pass e.g. a ``"mixture"`` row and
+    Designed for the "two geometries" comparison of ``02/09``: pass e.g. a ``"mixture"`` row and
     a ``"Wasserstein"`` row, each with the same set of time snapshots, on a shared
     1-D ``support`` --- the colour evolves from cold (t=0) to warm (t=1) along the path.
     """

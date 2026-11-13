@@ -73,7 +73,7 @@ def test_qot_zero_for_identical_mixed_states_quadratic_cost():
 
 # ----------------------------- Diagonal collapse: QOT = classical OT ----- #
 def test_quadratic_qot_on_diagonal_states_matches_classical_w2_squared():
-    """Diagonal-collapse principle (S12): for diagonal rho_A, rho_B in the X eigenbasis,
+    """Diagonal-collapse principle (04/01): for diagonal rho_A, rho_B in the X eigenbasis,
     the quadratic-cost QOT equals the classical W_2^2 on the diagonals."""
     p = np.array([0.6, 0.4])
     q = np.array([0.1, 0.9])

@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-_X = np.array([[0.0, 1.0], [1.0, 0.0]], dtype=complex)
-_Y = np.array([[0.0, -1.0j], [1.0j, 0.0]], dtype=complex)
-_Z = np.array([[1.0, 0.0], [0.0, -1.0]], dtype=complex)
+from qot_course.quantum.gates import IDENTITY, PAULI_X, PAULI_Y, PAULI_Z
 
 
 def density_matrix(state: np.ndarray) -> np.ndarray:
@@ -65,7 +63,7 @@ def fidelity(rho: np.ndarray, sigma: np.ndarray) -> float:
     """Fidelity F(rho, sigma) = (tr sqrt(sqrt(rho) sigma sqrt(rho)))^2 -- the squared (Jozsa 1994)
     convention used throughout the course (a probability; |<phi|psi>|^2 for pure states).
     Its square root is the Uhlmann fidelity F_U (Nielsen & Chuang's "fidelity"), used by the
-    Bures distance. Convention fixed in notebook 01/14."""
+    Bures distance. Convention fixed in notebook 01/15."""
     rho = np.asarray(rho, dtype=complex)
     sigma = np.asarray(sigma, dtype=complex)
     sqrt_rho = _sqrtm_psd(rho)
@@ -83,10 +81,12 @@ def trace_distance(rho: np.ndarray, sigma: np.ndarray) -> float:
 def bloch_vector(rho: np.ndarray) -> np.ndarray:
     """Bloch vector r = (tr(rho X), tr(rho Y), tr(rho Z)) of a qubit density matrix."""
     rho = np.asarray(rho, dtype=complex)
-    return np.array([float(np.real(np.trace(rho @ M))) for M in (_X, _Y, _Z)])
+    return np.array(
+        [float(np.real(np.trace(rho @ M))) for M in (PAULI_X, PAULI_Y, PAULI_Z)]
+    )
 
 
 def density_from_bloch(r: np.ndarray) -> np.ndarray:
     """Qubit density matrix rho = 1/2 (I + r_x X + r_y Y + r_z Z)."""
     r = np.asarray(r, dtype=float)
-    return 0.5 * (np.eye(2, dtype=complex) + r[0] * _X + r[1] * _Y + r[2] * _Z)
+    return 0.5 * (IDENTITY + r[0] * PAULI_X + r[1] * PAULI_Y + r[2] * PAULI_Z)

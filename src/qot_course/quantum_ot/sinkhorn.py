@@ -1,6 +1,7 @@
 """Quantum entropic optimal transport --- the operator-level Sinkhorn.
 
-S14 lifts S10's entropic regularisation to density matrices:
+Notebooks ``04/06`` to ``04/08`` lift the entropic regularisation of ``03/09`` to density
+matrices:
 
 .. math::
     \\rho^\\star_{AB,\\,\\varepsilon} = \\arg\\min_{\\rho_{AB} \\in \\Pi(\\rho_A, \\rho_B)}
@@ -10,24 +11,27 @@ with :math:`S(\\rho_{AB}) = -\\mathrm{tr}(\\rho_{AB}\\log\\rho_{AB})` (von Neuma
 The **matrix-exponential Gibbs kernel** :math:`K = \\exp(-C/\\varepsilon)` plays the role
 of the entrywise classical kernel.
 
-\\textbf{Quantum Amari bridge}. A one-line algebra reveals
+**Quantum Amari bridge.** Since :math:`\\log K = -C/\\varepsilon`, one line of algebra gives
 
 .. math::
     \\varepsilon\\,S_{\\mathrm{Umegaki}}(\\rho_{AB}\\,\\|\\,K)
-    = \\mathrm{tr}(\\rho_{AB}\\,\\log\\rho_{AB}) - \\mathrm{tr}(\\rho_{AB}\\,\\log K)\\cdot\\varepsilon / 1
+    = \\varepsilon\\,\\mathrm{tr}(\\rho_{AB}\\,\\log\\rho_{AB})
+    - \\varepsilon\\,\\mathrm{tr}(\\rho_{AB}\\,\\log K)
     = \\mathrm{tr}(C\\,\\rho_{AB}) - \\varepsilon\\,S(\\rho_{AB}),
 
 so the entropic QOT plan is the **Umegaki relative-entropy projection** of the
 matrix-exponential Gibbs kernel onto the coupling polytope. The Sinkhorn iterations of
-S10 are *iterative Bregman projections* under the KL divergence; their quantum analogue
+``03/10`` are *iterative Bregman projections* under the KL divergence; their quantum analogue
 is the operator Bregman iteration under the Umegaki divergence (Peyre, Chizat, Vialard,
 Solomon, 2019; Feliciangeli, Gerolin, Portinale, 2023).
 
 For pedagogical clarity we solve the entropic SDP directly via cvxpy's
 :func:`cvxpy.von_neumann_entr` atom rather than running the explicit operator iteration.
 The two approaches return the same plan when :math:`\\rho_A`, :math:`\\rho_B` and
-:math:`C` commute, where both reduce to classical Sinkhorn. Off the commuting case they
-are different objects and their plans differ; see the notes of :func:`operator_sinkhorn`.
+:math:`C` commute, where both reduce to classical Sinkhorn. Commuting is enough for that, not
+necessary: a separable cost :math:`C_A \\otimes I + I \\otimes C_B` also gives both the
+same plan, the product state. Off these cases the two are different objects and their
+plans can differ; see the notes of :func:`operator_sinkhorn`.
 
 References: M. Cuturi, "Sinkhorn distances", NeurIPS (2013); G. Peyre, L. Chizat, F.-X.
 Vialard, J. Solomon, "Quantum entropic regularization of matrix-valued optimal
@@ -53,7 +57,7 @@ def matrix_gibbs_kernel(cost: np.ndarray, epsilon: float) -> np.ndarray:
     """Matrix-exponential Gibbs kernel :math:`K = \\exp(-C/\\varepsilon)`.
 
     Quantum analogue of the entrywise classical Gibbs kernel
-    :math:`K_{ij} = e^{-C_{ij}/\\varepsilon}` from S10. For commuting (diagonal) cost
+    :math:`K_{ij} = e^{-C_{ij}/\\varepsilon}` from ``03/09``. For commuting (diagonal) cost
     operators the two coincide; in general the matrix exponential adds operator-mixing.
     """
     return spla.expm(-np.asarray(cost, dtype=complex) / float(epsilon))
@@ -336,7 +340,7 @@ def quantum_sinkhorn_cost(
     solver: str | None = None,
 ) -> float:
     """Transport cost ``tr(C * P_eps)`` (without the entropy term) at the entropic
-    optimum --- useful for comparing to the non-regularised SDP of S13."""
+    optimum --- useful for comparing to the non-regularised SDP of ``04/04``."""
     _, plan = quantum_sinkhorn_sdp(rho_a, rho_b, cost, epsilon, solver=solver)
     return float(np.real(np.trace(np.asarray(cost) @ plan)))
 
@@ -350,7 +354,7 @@ def umegaki_kl_to_kernel(
     Gibbs kernel of :func:`matrix_gibbs_kernel`). The classical KL identity
     :math:`\\varepsilon\\,\\mathrm{KL}(P \\| K) = \\langle C, P\\rangle - \\varepsilon H(P)`
     lifts to :math:`\\varepsilon\\,S_{\\mathrm{Umegaki}}(P \\| K) = \\mathrm{tr}(C\\,P)
-    - \\varepsilon\\,S(P)` --- this is the **Amari quantum bridge** of S14.
+    - \\varepsilon\\,S(P)` --- this is the **Amari quantum bridge** of ``04/08``.
     """
     plan = 0.5 * (
         np.asarray(plan, dtype=complex) + np.asarray(plan, dtype=complex).conj().T
@@ -374,7 +378,7 @@ def umegaki_kl_to_kernel(
 
 # ----------------------------------------------------------------------------- #
 # Explicit operator (quantum) Sinkhorn iteration --- the matrix analogue of the
-# alternating row/column rescaling of classical Sinkhorn (S10). Where
+# alternating row/column rescaling of classical Sinkhorn (03/10). Where
 # ``quantum_sinkhorn_sdp`` above hands the whole entropic SDP to cvxpy, the routines
 # below run the *iteration itself*: alternating positive-operator rescalings of the
 # Gibbs kernel until the partial traces hit the prescribed marginals. This is operator
@@ -484,7 +488,7 @@ def operator_sinkhorn(
     :math:`\\mathrm{tr}_B(P) = \\rho_A` and :math:`\\mathrm{tr}_A(P) = \\rho_B`. Each
     half-step solves the operator equation :math:`X M X = \\rho` in closed form via
     :func:`_scaling_factor` (operator scaling; Gurvits, 2004). This is the matrix
-    analogue of the alternating row/column rescaling of classical Sinkhorn (S10): the
+    analogue of the alternating row/column rescaling of classical Sinkhorn (``03/10``): the
     Gibbs kernel replaces the entrywise kernel, and the positive operators
     :math:`X, Y` replace the diagonal scaling vectors :math:`u, v`.
 
@@ -535,15 +539,18 @@ def operator_sinkhorn(
     C]` all commute) this iteration and :func:`quantum_sinkhorn_sdp` both reduce to
     *classical* Sinkhorn and therefore return the **same** plan --- this is what
     ``test_operator_sinkhorn_equals_sdp_in_commuting_case`` verifies. In the general
-    **non-commuting** case the two differ: this fixed point is the operator-scaling
+    **non-commuting** case the two can differ. They need not: a separable cost
+    :math:`C_A \\otimes I + I \\otimes C_B` has the product state as both answers.
+    This fixed point is the operator-scaling
     solution (Georgiou & Pavon, 2015), of the form :math:`(X \\otimes Y) K (X \\otimes Y)`,
     whereas the SDP optimum is the Umegaki projection of :math:`K`, of the form
     :math:`\\exp(\\log K + U \\otimes I + I \\otimes V)`. Measured on a non-commuting
     qubit pair at :math:`\\varepsilon = 0.5` (cost :math:`(X \\otimes I - I \\otimes Z)^2`,
-    two random states): Frobenius distance 0.062 between the plans, entropic objective
-    0.4987 at this fixed point against 0.4901 at the SDP optimum. This routine does
-    **not** reproduce the SDP plan off the commuting case --- treat it as the
-    operator-scaling solution in its own right.
+    the two random states of notebook ``04/07``, drawn with ``default_rng(1)``):
+    Frobenius distance 0.0983 between the plans, entropic objective 0.6467 at this fixed
+    point against 0.6305 at the SDP optimum. This routine is **not** guaranteed to
+    reproduce the SDP plan off the commuting case --- treat it as the operator-scaling
+    solution in its own right.
 
     The square-root rescaling ``X M X = ρ`` (rather than a one-sided ``X M = ρ``) keeps
     every iterate Hermitian PSD, which is what makes ``P`` a valid (sub-normalised)

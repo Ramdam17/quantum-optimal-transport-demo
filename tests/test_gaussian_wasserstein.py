@@ -32,7 +32,7 @@ def test_bures_matrix_distance_diagonal_case_equals_sqrt_diff_squared():
 
 def test_bures_matrix_distance_matches_quantum_bures_squared_for_density_matrices():
     """The bridge: for unit-trace PSD matrices (density matrices), the Bures matrix
-    distance equals the squared Bures distance from S7."""
+    distance equals the squared Bures distance of 02/13."""
     pairs = [
         (density_matrix(KET_PLUS), maximally_mixed(2)),
         (density_matrix(KET_0), density_matrix(KET_PLUS)),

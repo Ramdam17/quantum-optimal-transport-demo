@@ -1,6 +1,6 @@
 """Entropic optimal transport: the Sinkhorn algorithm and Amari's KL bridge.
 
-S10 regularises the Kantorovich LP by an entropy bonus:
+Notebooks ``03/09`` to ``03/11`` regularise the Kantorovich LP by an entropy bonus:
 
 .. math::
     P^\\star_\\varepsilon = \\arg\\min_{P \\in T(a, b)}\\
@@ -16,8 +16,11 @@ A one-line algebra reveals **Amari's bridge**: with the Gibbs kernel
     = \\langle C, P\\rangle - \\varepsilon H(P) + \\text{const},
 
 so the entropic-OT plan is the **KL projection** of the Gibbs kernel onto the
-transportation polytope :math:`T(a, b)`. This is exactly where Wasserstein (M3) meets
-KL / Fisher--Rao (M2).
+transportation polytope :math:`T(a, b)`. This is exactly where Wasserstein (module 03) meets
+KL / Fisher--Rao (module 02). The course names the identity after Amari's information
+geometry; the identity itself is due to Cuturi (2013), who regularised OT with entropy
+and solved it by Sinkhorn scaling, and to Benamou, Carlier, Cuturi, Nenna and Peyre
+(2015), who wrote it as a KL projection solved by iterated Bregman projections.
 
 The Sinkhorn algorithm (Sinkhorn 1964; rediscovered by Cuturi 2013 for OT) is the
 *iterative Bregman projection* onto the two marginal constraints, which under the KL
@@ -25,8 +28,10 @@ Bregman divergence is just alternating multiplicative rescaling of rows and colu
 
 References: M. Cuturi, "Sinkhorn distances: lightspeed computation of optimal transport",
 NeurIPS (2013); G. Peyre and M. Cuturi, *Computational Optimal Transport* (NoW, 2019),
-chs.~4--5; S.-i. Amari, *Information Geometry and Its Applications* (Springer, 2016),
-sec.~7.5; R. Sinkhorn, "A relationship between arbitrary positive matrices and doubly
+chs.~4--5; J.-D. Benamou, G. Carlier, M. Cuturi, L. Nenna and G. Peyre, "Iterative
+Bregman projections for regularized transportation problems", SIAM J. Sci. Comput. 37,
+A1111 (2015), DOI:10.1137/141000439; S.-i. Amari, *Information Geometry and Its
+Applications* (Springer, 2016), DOI:10.1007/978-4-431-55978-8; R. Sinkhorn, "A relationship between arbitrary positive matrices and doubly
 stochastic matrices", Ann. Math. Statist. 35, 876 (1964).
 """
 
@@ -38,8 +43,9 @@ import numpy as np
 def gibbs_kernel(cost: np.ndarray, epsilon: float) -> np.ndarray:
     """Gibbs kernel ``K[i, j] = exp(-C[i, j] / epsilon)``.
 
-    Centre point of the KL projection: the unconstrained minimiser of
-    ``epsilon * KL(P || K) - <C, P>`` is ``K`` itself (without marginals).
+    Centre point of the KL projection: without marginal constraints, the minimiser of
+    the generalised ``KL(P || K)`` is ``K`` itself, and the minimiser of
+    ``<C, P> - epsilon * H(P)`` is ``exp(-1) * K``.
     Adding the marginal constraints gives the entropic OT problem.
     """
     return np.exp(-np.asarray(cost, dtype=float) / epsilon)
@@ -87,26 +93,6 @@ def sinkhorn(
         u = u_new
     v = b / np.maximum(K.T @ u, 1e-300)
     return (u[:, None] * K) * v[None, :]
-
-
-def sinkhorn_distance(
-    a: np.ndarray,
-    b: np.ndarray,
-    cost: np.ndarray,
-    epsilon: float,
-    n_iter: int = 500,
-    tol: float = 1e-9,
-) -> float:
-    """Entropic transport cost ``<C, P_eps>`` for the Sinkhorn plan.
-
-    Note: this is *not* a proper distance (no triangle inequality at fixed
-    :math:`\\varepsilon > 0`); the *debiased* Sinkhorn divergence
-    :math:`S_\\varepsilon(\\mu, \\nu) = \\mathrm{OT}_\\varepsilon(\\mu, \\nu)
-    - \\tfrac{1}{2}\\mathrm{OT}_\\varepsilon(\\mu, \\mu)
-    - \\tfrac{1}{2}\\mathrm{OT}_\\varepsilon(\\nu, \\nu)` (Feydy et al., 2019) does.
-    """
-    plan = sinkhorn(a, b, cost, epsilon, n_iter, tol)
-    return float(np.sum(plan * np.asarray(cost, dtype=float)))
 
 
 def sinkhorn_iterations_log(

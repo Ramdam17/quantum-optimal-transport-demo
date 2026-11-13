@@ -1,6 +1,7 @@
 """Quantum information theory: relative entropy, mutual information, Bures.
 
-S7 lifts the classical information toolbox of S5 to density matrices:
+Notebooks ``02/10`` to ``02/13`` lift the classical information toolbox of ``02/01`` to
+``02/05`` to density matrices:
 
 - **Umegaki relative entropy** :math:`S(\\rho \\| \\sigma) = \\mathrm{tr}\\,\\rho(\\log\\rho - \\log\\sigma)`
   --- the quantum KL, the parent of every entropic regulariser in QOT.
@@ -9,7 +10,7 @@ S7 lifts the classical information toolbox of S5 to density matrices:
 - **Quantum conditional entropy** :math:`S(A|B) = S(\\rho_{AB}) - S(\\rho_B)`, which can be
   **negative** --- a purely quantum effect (Cerf and Adami, 1997).
 - **Bures distance** :math:`d_B(\\rho, \\sigma) = \\sqrt{2(1 - F(\\rho, \\sigma))}` --- the
-  quantum lift of the Fisher--Rao distance of S6 (here :math:`F` is the Uhlmann
+  quantum lift of the Fisher--Rao distance of ``02/08`` (here :math:`F` is the Uhlmann
   fidelity, not its square).
 
 References: M. A. Nielsen and I. L. Chuang, *Quantum Computation and Quantum Information*
@@ -105,9 +106,12 @@ def bures_distance(rho: np.ndarray, sigma: np.ndarray) -> float:
     Here ``F_U = tr sqrt(sqrt(rho) sigma sqrt(rho))`` is the **Uhlmann fidelity** (not
     its square --- our package's :func:`fidelity` follows the squared Jozsa (1994)
     convention and returns :math:`F_U^2`, of which we take the square root; Nielsen--Chuang's
-    "fidelity" is the root :math:`F_U` itself; convention fixed in notebook 01/14). Bures is
-    the quantum analogue of the Fisher--Rao distance of S6: for *diagonal* states it
-    reduces to the Bhattacharyya / Hellinger distance on probability vectors.
+    "fidelity" is the root :math:`F_U` itself; convention fixed in notebook 01/15). Bures is
+    the quantum counterpart of the Fisher--Rao distance (notebook 02/13). On commuting
+    (diagonal) states ``diag(p)`` and ``diag(q)``, ``F_U`` is the Bhattacharyya coefficient
+    ``B = sum_i sqrt(p_i q_i)``, so ``d_B = sqrt(2) * Hel(p, q)`` in the course's Hellinger
+    convention ``Hel = sqrt(1 - B)``, and ``d_B = 2 sin(d_FR / 4)`` with the Fisher--Rao
+    distance ``d_FR = 2 arccos(B)``.
     """
     f_squared = fidelity(rho, sigma)
     f_uhlmann = float(np.sqrt(max(0.0, min(1.0, f_squared))))
