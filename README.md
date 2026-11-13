@@ -72,7 +72,7 @@ uv run pytest -m "not notebooks"    # the fast suite
 uv run pytest                       # also executes every notebook end to end (slow)
 ```
 
-All deliverables (code, notebooks, summaries, glossary, the classical ↔ quantum dictionary, `notebooks/dictionary.ipynb`) are in
+All deliverables (code, notebooks, the classical ↔ quantum dictionary, `notebooks/dictionary.ipynb`) are in
 English.
 
 ## How the course is structured

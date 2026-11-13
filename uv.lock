@@ -2684,7 +2684,6 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "cvxpy" },
-    { name = "jinja2" },
     { name = "jupyter" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -2710,7 +2709,6 @@ dev = [
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.0" },
     { name = "cvxpy", specifier = ">=1.4" },
-    { name = "jinja2", specifier = ">=3.1" },
     { name = "jupyter", specifier = ">=1.0" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },

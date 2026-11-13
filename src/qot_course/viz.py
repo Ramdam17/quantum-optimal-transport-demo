@@ -1,7 +1,7 @@
 """Course plotting style and optimal-transport visualizations.
 
 A clean, high-contrast light style with vibrant accents, so figures read well
-both in notebooks and in the LaTeX PDF summaries. Each optimal-transport object
+in the notebooks. Each optimal-transport object
 gets its own, fully labelled figure (distributions, cost matrix, transport plan,
 mass flow) — never an unlabelled tangle.
 """
