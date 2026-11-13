@@ -64,6 +64,10 @@ optional and simulator-first (README → Credentials).
 - **NumPy-style docstrings**: imperative first sentence (fits an IDE tooltip), array **shapes**
   stated, **units** explicit (Hz, s, rad, µV), a "When to use" note for metrics, runnable examples,
   references with DOI.
+- **Units of information.** The entropies and divergences of `qot_course.infotheory` return
+  **bits** by default (`base=2`; pass `base=np.e` for nats). The coupling measures of the capstone
+  (`qot_course.quantum_ot.capstone`) and the objectives of the transport programs are in **nats**,
+  the unit of the natural logarithm the solvers use. One nat is $1/\ln 2 \approx 1.4427$ bits.
 - **One concept per notebook / one responsibility per file**; type hints on public signatures;
   `logging` (not `print`) in library code; random seeds fixed and documented.
 
