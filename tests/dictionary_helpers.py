@@ -26,8 +26,8 @@ from pathlib import Path
 
 LINK_TARGET = "dictionary.ipynb"
 PLAIN_PATH = "notebooks/dictionary.ipynb"
-# Ceiling over the first two cells of a row. It stops the August rows from
-# growing back; see the design note on the dictionary for how it may be raised.
+# Ceiling over the first two cells of a row, so that a row stays a name and a
+# short formula and does not grow into a summary of its notebook.
 MAX_ROW_WORDS = 45
 
 DICTIONARY_FILE = "dictionary.ipynb"
@@ -143,7 +143,7 @@ def _is_separator(cells: list[str]) -> bool:
     return bool(cells) and all(_SEPARATOR_CELL.match(c) for c in cells)
 
 
-def _tables(source: str) -> list[tuple[list[str], list[list[str]]]]:
+def tables(source: str) -> list[tuple[list[str], list[list[str]]]]:
     """Find the tables of a markdown source as ``(header, rows)`` pairs.
 
     A table is a line holding a bar, a separator line, then consecutive lines
@@ -196,7 +196,7 @@ def _parse_dictionary(path: Path) -> list[tuple[Row, str | None]]:
         # Headings and tables sit in the same cell or in consecutive cells; a
         # cell with a heading and a table has its heading first, so the module
         # found above is the right one for the tables below.
-        for header, rows in _tables(source):
+        for header, rows in tables(source):
             if not _is_dictionary_header(header):
                 continue
             for cells in rows:
@@ -246,7 +246,7 @@ def displayed_rows(nb_path: Path) -> list[tuple[str, str]]:
     if cell is None:
         return []
     rows: list[tuple[str, str]] = []
-    for header, body in _tables(cell):
+    for header, body in tables(cell):
         if not _is_classical_quantum(header):
             continue
         for cells in body:
@@ -261,7 +261,7 @@ def stray_tables(nb_path: Path) -> list[int]:
     for index, source in enumerate(_markdown_cells(nb_path)):
         if _LINK.search(source):
             continue
-        if any(_is_classical_quantum(header) for header, _ in _tables(source)):
+        if any(_is_classical_quantum(header) for header, _ in tables(source)):
             stray.append(index)
     return stray
 

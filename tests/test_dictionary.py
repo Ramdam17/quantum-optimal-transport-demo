@@ -21,8 +21,8 @@ from tests.dictionary_helpers import (
     notebook_id,
     split_row,
     stray_tables,
+    tables,
 )
-from tests.dictionary_helpers import _tables
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -332,14 +332,15 @@ def test_exemptions_must_name_existing_notebooks(tmp_path):
 
 
 def test_real_dictionary_tables_are_well_formed():
-    # Passes on the empty table and keeps meaning something once it fills.
+    # Every table of the dictionary carries the header Classical, Quantum,
+    # Earned in, there is at least one table, and every row fills its three cells.
     path = ROOT / "notebooks" / "dictionary.ipynb"
     nb = json.loads(path.read_text(encoding="utf-8"))
     headers = 0
     for cell in nb["cells"]:
         if cell["cell_type"] != "markdown":
             continue
-        for header, _ in _tables("".join(cell["source"])):
+        for header, _ in tables("".join(cell["source"])):
             headers += 1
             assert [normalise(c) for c in header] == [
                 "Classical",
