@@ -15,7 +15,7 @@ tutor alongside.
 Starting from qubits and density matrices, you assemble — piece by piece — the machinery of optimal
 transport on quantum states: the coupling semidefinite program, the operator Sinkhorn iteration, the
 Bures–Wasserstein bridge, and the information-geometric picture that ties them together. The classical
-↔ quantum **dictionary** grows row by row through every module. The theory closes with a research-grade
+↔ quantum **dictionary** lives in one notebook, `notebooks/dictionary.ipynb`; each module shows only the rows it earns. The theory closes with a research-grade
 capstone, and the last module asks whether a real quantum processor could resolve the capstone's
 results.
 
@@ -58,7 +58,7 @@ uv sync --extra dev
 uv run pytest
 ```
 
-All deliverables (code, notebooks, summaries, glossary, the classical ↔ quantum dictionary) are in
+All deliverables (code, notebooks, summaries, glossary, the classical ↔ quantum dictionary, `notebooks/dictionary.ipynb`) are in
 English.
 
 ## How the course is structured

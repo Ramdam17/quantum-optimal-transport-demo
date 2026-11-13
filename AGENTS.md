@@ -39,7 +39,8 @@ The point of this course is for the learner to *understand*, not to collect answ
 - `src/qot_course/` — the library the notebooks import (`quantum`, `infotheory`, `transport`,
   `quantum_ot`, `geometry`, `viz`, `colors`). Validated by `tests/`.
 - `tests/` — `uv run pytest`.
-- `docs/` — dictionary, glossary, the notebook template, **`common_errors.md`** (learner intuition
+- `notebooks/dictionary.ipynb` — the one complete classical ↔ quantum dictionary; a notebook shows only the rows it earns and links to it, and `tests/test_dictionary.py` keeps the two consistent.
+- `docs/` — glossary, the notebook template, **`common_errors.md`** (learner intuition
   traps), **`hardware_notes.md`** (running on real IBM QPUs), **`scientific_claims_guardrails.md`**
   (what may and may not be claimed); **`llms.txt` (repo root)** is a machine-readable index of every
   notebook (title · purpose · module) — use it to find which notebook covers a concept and what it
