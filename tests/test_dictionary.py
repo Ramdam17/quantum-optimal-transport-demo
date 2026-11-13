@@ -33,8 +33,7 @@ NOT_DICTIONARY = {"04/04": "side-by-side of the linear and the semidefinite prog
 # Notebooks that still hold an old table. One entry leaves with each commit that
 # converts a notebook, and the set ends empty.
 LEGACY = frozenset(
-    {"00/02"}
-    | {"04/20"}
+    {"04/20"}
 )
 
 HEADER = "| Classical | Quantum | Earned in |\n|---|---|---|\n"
