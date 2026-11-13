@@ -51,9 +51,11 @@ def amplitude_phase_state(theta: ArrayLike, amp: ArrayLike) -> NDArray[np.comple
     Each sample maps to :math:`\cos\alpha\,|0\rangle + \sin\alpha\,e^{i\theta}\,|1\rangle`,
     where the polar angle :math:`\alpha = \tfrac{\pi}{2}\,\mathrm{clip}(a, 0, 1)` encodes the
     (clipped, unit-scaled) amplitude envelope :math:`a` and the azimuth encodes the phase
-    :math:`\theta`. Amplitude ``0`` gives :math:`|0\rangle` (no phase weight); amplitude ``1``
-    gives :math:`e^{i\theta}|1\rangle` (the full phase qubit of
-    :func:`qot_course.quantum_ot.capstone.phase_qubit_state`, up to global phase).
+    :math:`\theta`. Amplitude ``0`` gives :math:`|0\rangle` and amplitude ``1`` gives
+    :math:`e^{i\theta}|1\rangle`, which is :math:`|1\rangle` up to a global phase: at both
+    ends the state no longer depends on the phase. Amplitude ``0.5`` gives the phase qubit of
+    :func:`qot_course.quantum_ot.capstone.phase_qubit_state`,
+    :math:`(|0\rangle + e^{i\theta}|1\rangle)/\sqrt 2`.
 
     Parameters
     ----------
