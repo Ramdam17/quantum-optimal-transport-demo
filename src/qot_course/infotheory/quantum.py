@@ -106,7 +106,7 @@ def bures_distance(rho: np.ndarray, sigma: np.ndarray) -> float:
     its square --- our package's :func:`fidelity` follows the squared Jozsa (1994)
     convention and returns :math:`F_U^2`, of which we take the square root; Nielsen--Chuang's
     "fidelity" is the root :math:`F_U` itself; convention fixed in notebook 01/14). Bures is
-    the quantum counterpart of the Fisher--Rao distance (notebook 02/12). On commuting
+    the quantum counterpart of the Fisher--Rao distance (notebook 02/13). On commuting
     (diagonal) states ``diag(p)`` and ``diag(q)``, ``F_U`` is the Bhattacharyya coefficient
     ``B = sum_i sqrt(p_i q_i)``, so ``d_B = sqrt(2) * Hel(p, q)`` in the course's Hellinger
     convention ``Hel = sqrt(1 - B)``, and ``d_B = 2 sin(d_FR / 4)`` with the Fisher--Rao

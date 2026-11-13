@@ -54,7 +54,7 @@ quantum. For a **pure** state it happens to equal twice the entanglement entropy
 pair the "2 bits = maximal entanglement" reading is exact. For a general **mixed** state, QMI also
 counts classical correlations, so it is not an entanglement measure on its own.
 
-**Where the course shows it.** `02/10` (quantum mutual information), `02/11` (negative conditional
+**Where the course shows it.** `02/11` (quantum mutual information), `02/12` (negative conditional
 entropy), `05/04` (QMI on hardware).
 
 ## "The entropic plan should always smooth out as the regularisation goes to zero."
@@ -106,7 +106,7 @@ frontier).
 Fisher–Rao distance built from the Uhlmann fidelity `F` — not `1 − F`, and not its square. Keep track
 of whether a function returns the distance or its square.
 
-**Where the course shows it.** `02/12` (the Bures distance), `05/05` (Bures on hardware).
+**Where the course shows it.** `02/13` (the Bures distance), `05/05` (Bures on hardware).
 
 ---
 

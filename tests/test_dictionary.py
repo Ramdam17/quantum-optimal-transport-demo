@@ -136,14 +136,14 @@ def test_load_dictionary_reads_rows_with_math_bars(tmp_path):
         tmp_path,
         {
             "01": [row(BIT, QUBIT, "`01/01`")],
-            "02": [row(KL, UMEGAKI, "`02/02`, `02/12`")],
+            "02": [row(KL, UMEGAKI, "`02/02`, `02/13`")],
         },
         {},
     )
     rows = load_dictionary(root / "dictionary.ipynb")
     assert [r.classical for r in rows] == [BIT, KL]
     assert rows[0].quantum == QUBIT
-    assert rows[1].earned_in == ("02/02", "02/12")
+    assert rows[1].earned_in == ("02/02", "02/13")
 
 
 def test_dictionary_cell_and_stray_tables(tmp_path):

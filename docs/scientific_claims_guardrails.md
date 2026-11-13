@@ -83,7 +83,7 @@ entropy).
 correlation (classical + quantum). For mixed states it includes classical correlations and is not, on
 its own, an entanglement measure.
 
-**Why:** The pure-state identity is a special case, not the general meaning. (`02/10`, `02/11`,
+**Why:** The pure-state identity is a special case, not the general meaning. (`02/11`, `02/12`,
 `05/04`.) Refs: Nielsen & Chuang ch. 11; Wilde, *Quantum Information Theory*, ch. 11.
 
 ## 3. The capstone's gaps on real hardware
