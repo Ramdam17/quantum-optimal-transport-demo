@@ -32,6 +32,9 @@ MAX_ROW_WORDS = 45
 
 DICTIONARY_FILE = "dictionary.ipynb"
 _ID_PATTERN = re.compile(r"\b(\d{2})/(\d{2})\b")
+# A pointer to a notebook inside a row is an identifier between backticks; the
+# backticks keep a formula such as a ratio from being taken for one.
+_POINTER = re.compile(r"`(\d{2}/\d{2})`")
 _SEPARATOR_CELL = re.compile(r"^:?-{1,}:?$")
 _MODULE_HEADING = re.compile(r"^#{1,6}\s+Module\s+(\d{2})\b")
 # A markdown link whose target ends in the dictionary notebook file name.
@@ -235,6 +238,29 @@ def dictionary_cell(nb_path: Path) -> str | None:
     return None
 
 
+def dictionary_cell_indexes(nb_path: Path) -> list[int]:
+    """Return the indexes of every markdown cell that links to the dictionary.
+
+    A notebook is expected to hold exactly one; :func:`dictionary_cell` reads
+    only the first, so a second would never be compared with the table.
+    """
+    return [
+        index
+        for index, source in enumerate(_markdown_cells(nb_path))
+        if _LINK.search(source)
+    ]
+
+
+def non_markdown_cells(nb_path: Path) -> list[int]:
+    """Return the indexes of the cells of a notebook that are not markdown."""
+    nb = json.loads(nb_path.read_text(encoding="utf-8"))
+    return [
+        index
+        for index, cell in enumerate(nb["cells"])
+        if cell["cell_type"] != "markdown"
+    ]
+
+
 def displayed_rows(nb_path: Path) -> list[tuple[str, str]]:
     """Return the normalised first two cells of the rows a notebook displays.
 
@@ -306,6 +332,12 @@ def check_course(
     problems: list[str] = []
     parsed = _parse_dictionary(notebooks_root / DICTIONARY_FILE)
     notebooks = _course_notebooks(notebooks_root)
+    other_cells = non_markdown_cells(notebooks_root / DICTIONARY_FILE)
+    if other_cells:
+        problems.append(
+            f"{DICTIONARY_FILE}: cells {', '.join(map(str, other_cells))} are not "
+            "markdown; the dictionary notebook holds markdown cells only."
+        )
     table: dict[tuple[str, str], Row] = {}
     for row, _ in parsed:
         key = (row.classical, row.quantum)
@@ -345,6 +377,13 @@ def check_course(
         for nb_id in row.earned_in:
             if nb_id not in notebooks:
                 problems.append(f"{label} names {nb_id}, which is not a notebook.")
+        for text in (row.classical, row.quantum):
+            for pointed in _POINTER.findall(text):
+                if pointed not in notebooks:
+                    problems.append(
+                        f"{label} points to {pointed} in its first two cells, "
+                        "which is not a notebook."
+                    )
         words = _word_count(row)
         if words > MAX_ROW_WORDS:
             problems.append(
@@ -353,6 +392,12 @@ def check_course(
             )
 
     for nb_id, path in notebooks.items():
+        linked = dictionary_cell_indexes(path)
+        if len(linked) > 1:
+            problems.append(
+                f"{nb_id}: cells {', '.join(map(str, linked))} all link to "
+                f"{LINK_TARGET}; there is more than one dictionary cell."
+            )
         cell = dictionary_cell(path)
         if cell is not None:
             for target in _LINK_TARGET_OF.findall(cell):

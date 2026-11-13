@@ -331,6 +331,63 @@ def test_exemptions_must_name_existing_notebooks(tmp_path):
     assert not any("01/01" in p and "not a notebook" in p for p in problems)
 
 
+def test_a_second_dictionary_cell_is_reported(tmp_path):
+    # Only the first cell with the link is compared with the table, so a second
+    # one would never be checked; the notebook must hold exactly one.
+    cell = local_cell([(BIT, QUBIT)])
+    root = make_course(
+        tmp_path,
+        {"01": [row(BIT, QUBIT, "`01/01`")]},
+        {"01/01": ["# One\n", cell, "text\n", cell], "01/02": ["# Two\n", cell]},
+    )
+    problems = check(root, preview={"01/02": "reason"})
+    assert any("01/01" in p and "more than one" in p and "1, 3" in p for p in problems)
+    # A preview-only notebook follows the same rule.
+    root = make_course(
+        tmp_path / "p",
+        {"01": [row(BIT, QUBIT, "`01/01`")]},
+        {"01/01": ["# One\n", cell], "01/02": ["# Two\n", cell, cell]},
+    )
+    problems = check(root, preview={"01/02": "reason"})
+    assert any("01/02" in p and "more than one" in p for p in problems)
+
+
+def test_the_dictionary_notebook_holds_markdown_only(tmp_path):
+    root = good_course(tmp_path)
+    assert check(root) == []
+    path = root / "dictionary.ipynb"
+    data = json.loads(path.read_text())
+    data["cells"].append(
+        {
+            "cell_type": "code",
+            "id": "z",
+            "metadata": {},
+            "execution_count": None,
+            "outputs": [],
+            "source": ["1 + 1\n"],
+        }
+    )
+    path.write_text(json.dumps(data))
+    assert any("dictionary.ipynb" in p and "not markdown" in p for p in check(root))
+
+
+def test_a_pointer_to_a_missing_notebook_in_a_row_is_reported(tmp_path):
+    def course(root: Path, classical: str, quantum: str) -> list[str]:
+        made = make_course(
+            root,
+            {"01": [row(classical, quantum, "`01/01`")]},
+            {"01/01": [local_cell([(classical, quantum)])]},
+        )
+        return check(made)
+
+    problems = course(tmp_path / "a", "bit, see `01/09`", "qubit, see `01/01`")
+    pointers = [p for p in problems if "points to" in p]
+    assert len(pointers) == 1
+    assert "bit, see `01/09`" in pointers[0] and "01/09" in pointers[0]
+    # A pointer to a notebook of the course and a bare ratio are both accepted.
+    assert course(tmp_path / "b", "bit, see `01/01`", "ratio 12/34 of $a/b$") == []
+
+
 def test_real_dictionary_tables_are_well_formed():
     # Every table of the dictionary carries the header Classical, Quantum,
     # Earned in, there is at least one table, and every row fills its three cells.
