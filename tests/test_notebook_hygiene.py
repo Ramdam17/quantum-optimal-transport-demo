@@ -4,7 +4,8 @@
 JSON and checks what an execution cannot see: that they are committed without outputs, that
 the prose keeps to the voice rules (no banned word, no emoji, no numbering left over from the
 old layout), that every figure is followed by its reading, that the fixed frame of a notebook
-is there, and that ``llms.txt`` is the output of its generator. The tests are fast and run in
+is there, that every notebook asks for the standard kernel, and that ``llms.txt`` is the output
+of its generator. The tests are fast and run in
 the default suite.
 """
 
@@ -37,6 +38,12 @@ READING = re.compile(r"\s*\*\*Read (the|both|each|all|this)")
 FRAME_EXEMPT = {"04_QuantumOptimalTransport/20_frontier_synthesis"}
 # The first tour of the library asks nothing of the learner yet.
 EXERCISES_EXEMPT = FRAME_EXEMPT | {"00_GettingStarted/02_what_is_optimal_transport"}
+# ``uv run jupyter lab`` offers this kernel by default; a named kernel exists on one machine only.
+STANDARD_KERNEL = {
+    "display_name": "Python 3 (ipykernel)",
+    "language": "python",
+    "name": "python3",
+}
 
 
 def _all_notebooks() -> list[Path]:
@@ -90,6 +97,13 @@ def test_notebook_is_committed_without_outputs(nb_path: Path) -> None:
         and (cell.get("outputs") or cell.get("execution_count") is not None)
     ]
     assert dirty == [], f"cells with outputs or execution counts: {dirty}"
+
+
+@ALL
+def test_notebook_asks_for_the_standard_kernel(nb_path: Path) -> None:
+    """A learner who opens the notebook is not asked to choose a kernel."""
+    notebook = json.loads(nb_path.read_text(encoding="utf-8"))
+    assert notebook["metadata"].get("kernelspec") == STANDARD_KERNEL
 
 
 @ALL
