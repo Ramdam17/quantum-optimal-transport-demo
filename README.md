@@ -6,7 +6,7 @@ measure of how steadily two signals keep the same phase difference, and the test
 coupling measure built from QOT reads past it, with a classical statistic beside it at each test.
 
 The course is built **one concept per notebook**: short, focused "bricks" build progressively to a
-"synthesis" notebook, so each idea lands before the next arrives. **75 notebooks across 6 modules**,
+"synthesis" notebook, so each idea lands before the next arrives. **76 notebooks across 6 modules**,
 sized for ~1-hour sessions and a mixed-background audience, and meant to be worked through with an AI
 tutor alongside.
 

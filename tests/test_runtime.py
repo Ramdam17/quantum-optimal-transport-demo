@@ -77,5 +77,5 @@ def test_select_backend_offline_default_is_the_marrakesh_twin(monkeypatch):
 
 
 def test_noisy_backend_default_stays_manila_for_module_01():
-    """01/11 and 01/15 read FakeManilaV2 calibration for the qubit this backend uses."""
+    """01/12 and 01/16 read FakeManilaV2 calibration for the qubit this backend uses."""
     assert rt.get_noisy_backend().num_qubits == 5

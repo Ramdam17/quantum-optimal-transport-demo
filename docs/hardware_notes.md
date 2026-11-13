@@ -113,7 +113,7 @@ The classical register is named `c` when you build the circuit with `QuantumCirc
   distance with depth; the real run, one pass per depth, did not resolve it.
 
 - **Module 01 keeps the older model.** `get_noisy_backend()` still defaults to the 5-qubit
-  `FakeManilaV2` (native two-qubit gate `cx`), because notebooks `01/11` and `01/15` read the
+  `FakeManilaV2` (native two-qubit gate `cx`), because notebooks `01/12` and `01/16` read the
   calibration values of that model.
 
 - **Every run leaves its counts.** Each run cell of module 05 calls `save_run_record`, which writes

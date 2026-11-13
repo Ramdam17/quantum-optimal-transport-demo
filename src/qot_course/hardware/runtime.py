@@ -60,7 +60,7 @@ def get_backend(prefer_hardware: bool = False):
 DEFAULT_FAKE_BACKEND = "FakeMarrakesh"
 
 #: Default of :func:`get_noisy_backend`, kept at the 5-qubit ``FakeManilaV2`` because notebooks
-#: 01/11 and 01/15 read ``FakeManilaV2`` calibration values for the qubit the noisy backend uses.
+#: 01/12 and 01/16 read ``FakeManilaV2`` calibration values for the qubit the noisy backend uses.
 LEGACY_FAKE_BACKEND = "FakeManilaV2"
 
 
@@ -76,7 +76,7 @@ def get_noisy_backend(fake: str = LEGACY_FAKE_BACKEND):
     ----------
     fake : str
         Name of a class in ``qiskit_ibm_runtime.fake_provider``. The default, ``"FakeManilaV2"``
-        (5 qubits, ``cx``), is what notebooks 01/11 and 01/15 expect; module 05 goes through
+        (5 qubits, ``cx``), is what notebooks 01/12 and 01/16 expect; module 05 goes through
         :func:`select_backend`, whose default is ``"FakeMarrakesh"``.
     """
     try:
