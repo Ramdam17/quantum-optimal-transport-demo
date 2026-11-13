@@ -5,11 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from qot_course.quantum.density import von_neumann_entropy
-
-_X = np.array([[0.0, 1.0], [1.0, 0.0]], dtype=complex)
-_Y = np.array([[0.0, -1.0j], [1.0j, 0.0]], dtype=complex)
-_Z = np.array([[1.0, 0.0], [0.0, -1.0]], dtype=complex)
-_I = np.eye(2, dtype=complex)
+from qot_course.quantum.gates import IDENTITY, PAULI_X, PAULI_Y, PAULI_Z
 
 
 def tensor(*operands: np.ndarray) -> np.ndarray:
@@ -94,8 +90,8 @@ def depolarizing_channel(p: float) -> list[np.ndarray]:
     input is (1 + (1 - p)^2) / 2. Complete positivity requires 0 <= p <= 4/3.
     """
     return [
-        np.sqrt(1.0 - 3.0 * p / 4.0) * _I,
-        np.sqrt(p / 4.0) * _X,
-        np.sqrt(p / 4.0) * _Y,
-        np.sqrt(p / 4.0) * _Z,
+        np.sqrt(1.0 - 3.0 * p / 4.0) * IDENTITY,
+        np.sqrt(p / 4.0) * PAULI_X,
+        np.sqrt(p / 4.0) * PAULI_Y,
+        np.sqrt(p / 4.0) * PAULI_Z,
     ]

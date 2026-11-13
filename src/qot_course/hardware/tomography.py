@@ -36,11 +36,9 @@ import itertools
 import numpy as np
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 
-_I = np.array([[1, 0], [0, 1]], dtype=complex)
-_X = np.array([[0, 1], [1, 0]], dtype=complex)
-_Y = np.array([[0, -1j], [1j, 0]], dtype=complex)
-_Z = np.array([[1, 0], [0, -1]], dtype=complex)
-_PAULI = {"I": _I, "X": _X, "Y": _Y, "Z": _Z}
+from qot_course.quantum.gates import IDENTITY, PAULI_X, PAULI_Y, PAULI_Z
+
+_PAULI = {"I": IDENTITY, "X": PAULI_X, "Y": PAULI_Y, "Z": PAULI_Z}
 
 
 def _measure_basis(qc: QuantumCircuit, qubit: int, basis: str) -> None:
@@ -134,7 +132,9 @@ def density_from_counts(counts_by_setting: dict, n_qubits: int) -> np.ndarray:
         for basis in ("X", "Y", "Z"):
             p = _probs(counts_by_setting[basis], 1)
             exp[basis] = p.get((0,), 0.0) - p.get((1,), 0.0)  # <P> = p0 - p1
-        rho = 0.5 * (_I + exp["X"] * _X + exp["Y"] * _Y + exp["Z"] * _Z)
+        rho = 0.5 * (
+            IDENTITY + exp["X"] * PAULI_X + exp["Y"] * PAULI_Y + exp["Z"] * PAULI_Z
+        )
         return _project_physical(rho)
 
     if n_qubits == 2:
