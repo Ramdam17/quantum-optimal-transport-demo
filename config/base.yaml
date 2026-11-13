@@ -1,11 +1,10 @@
-# Global defaults shared across sessions. Session configs override these.
+# Defaults of the course, in one file.
 seed: 42
-paths:
-  docs_dir: "docs"
 
-# Capstone simulation defaults (used by sweep_coupling_measures and the
-# 04/13–04/14 notebooks).  duration_s controls Monte-Carlo averaging quality:
-# shorter values speed up tests; longer values tighten the Spearman correlation.
+# Capstone simulation defaults. The signature of sweep_coupling_measures states the same
+# duration and seed, and tests/test_config.py checks that the two agree. The duration sets
+# the quality of the Monte-Carlo average: shorter values speed up tests, longer values
+# tighten the Spearman correlation.
 capstone:
   sweep_duration_s: 200.0   # default simulation duration per K value (seconds)
   sweep_seed: 0             # default RNG seed for reproducibility
