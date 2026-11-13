@@ -282,16 +282,18 @@ def weighted_multifreq_state(
     Notes
     -----
     When to use
-        Use to **amplify the measurable QOT>PLV effect** (research extension 04/18): the naive
-        equal weighting spreads the joint density's coupling across the first-moment (PLV)
-        channel and the higher-moment channels alike. *Down-weighting* the first-harmonic
-        channel (e.g. ``weights=(1.0, 0.2, 2.0)``) suppresses the dominant PLV channel --- which
-        carries the dominant Monte-Carlo *noise* --- and concentrates the quantum mutual
-        information on the discriminating higher-moment channel, raising both the gap and its
-        significance. Use the equal-weight :func:`multifreq_state` for the faithful,
-        unbiased directional embedding; use this when you are deliberately tuning *which* moment
-        the coupling measure emphasises. The weighting does **not** create exclusivity over a
-        matched classical statistic (see 04/20): it improves *measurability*, not detection power.
+        Use to choose **which circular moment the coupling measure emphasises** (research
+        extension 04/18). The equal weighting spreads the joint density's coupling across the
+        first-moment (PLV) channel and the higher-moment channels alike. *Down-weighting* the
+        first-harmonic channel (e.g. ``weights=(1.0, 0.2, 2.0)``) concentrates the quantum mutual
+        information on the second-moment channel, which widens the gap between two ensembles
+        that differ only in their second moment (0.0145 nat against 0.0044 nat with equal
+        weights, 04/18). Use the equal-weight :func:`multifreq_state` for the faithful, unbiased
+        directional embedding; use this when you are deliberately tuning *which* moment the
+        coupling measure emphasises. The weighting does **not** let the quantum measure read
+        further than a matched classical statistic: it comes level with the second-harmonic PLV
+        and does not pass it (04/18, 04/20). It changes the scale of the gap, not the ranking
+        of the records.
 
     Examples
     --------

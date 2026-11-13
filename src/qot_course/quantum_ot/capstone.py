@@ -205,9 +205,8 @@ def sweep_coupling_measures(
     Examples
     --------
     >>> import numpy as np
-    >>> from pathlib import Path
     >>> from qot_course.utils.config import load_config
-    >>> cfg = load_config(Path(__file__).parents[3] / "config" / "base.yaml")
+    >>> cfg = load_config("config/base.yaml")  # run from the repository root
     >>> example_dur = cfg["capstone"]["example_duration_s"]   # 120.0
     >>> example_seed = cfg["capstone"]["sweep_seed"]           # 0
     >>> grid = np.linspace(0.0, 4.0, 8)
