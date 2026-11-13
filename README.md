@@ -1,8 +1,9 @@
 # Quantum Optimal Transport — a Hands-On Course
 
-A hands-on journey from **classical optimal transport** to its **quantum generalization** — ending in
-a controlled demonstration of *when* quantum optimal transport reads coupling structure that the
-phase-locking value (PLV) cannot.
+A hands-on journey from **classical optimal transport** to its **quantum generalization**, quantum
+optimal transport (QOT) — ending in a controlled test. The phase-locking value (PLV) is a standard
+measure of how steadily two signals keep the same phase difference, and the test asks *how far* a
+coupling measure built from QOT reads past it, with a classical statistic beside it at each test.
 
 The course is built **one concept per notebook**: short, focused "bricks" build progressively to a
 "synthesis" notebook, so each idea lands before the next arrives. **73 notebooks across 6 modules**,
@@ -14,19 +15,41 @@ tutor alongside.
 Starting from qubits and density matrices, you assemble — piece by piece — the machinery of optimal
 transport on quantum states: the coupling semidefinite program, the operator Sinkhorn iteration, the
 Bures–Wasserstein bridge, and the information-geometric picture that ties them together. The classical
-↔ quantum **dictionary** grows row by row through every module. The course closes with a research-grade
-capstone.
+↔ quantum **dictionary** grows row by row through every module. The theory closes with a research-grade
+capstone, and the last module asks whether a real quantum processor could resolve the capstone's
+results.
 
-## The capstone — when quantum OT beats PLV
+## The capstone — how far quantum optimal transport reads past PLV
 
-The final module (`notebooks/04_QuantumOptimalTransport/`) does not hand-wave the headline question.
-It builds two synthetic oscillator dyads with **identical PLV by construction** but different
-higher-order phase structure, and shows that a richer-embedding quantum coupling measure **separates
-them** where PLV — and the naive quantum embedding — are blind (a controlled, significant separation
-against a matched null). The accounting is honest: a classical higher-order statistic could also detect
-this difference, so the value of quantum optimal transport here is the **unified geometric framework**
-— one geometry, one pair of measures, with the embedding as the single dial that sets what the coupling
-measure can see — not a claim of unique detecting power.
+The capstone (`11` to `18` in `notebooks/04_QuantumOptimalTransport/`) does not hand-wave its
+question: can a quantum coupling measure read something the phase-locking value cannot?
+
+Three words carry the answer. Write Δ for the phase difference between two signals. PLV is the length
+of the average of `e^{iΔ}`, and that average is the *first harmonic* of the phase difference. The
+*second harmonic* is the average of `e^{2iΔ}`, which PLV discards; it tells, for instance, whether
+the phase difference gathers around two opposite values instead of one. An *embedding* is the recipe
+that writes the two signals into a quantum state, and it decides which harmonics the state carries.
+
+The capstone builds two synthetic ensembles, sets of sampled phase pairs, with the same first
+harmonic, hence **identical PLV by construction**, and a different second harmonic. It then simulates
+a pair of coupled oscillators whose second harmonic has a coupling strength of its own. Each quantum
+measure is scored beside a classical statistic of the same harmonics. The capstone reaches four
+conclusions:
+
+1. When its embedding carries the second harmonic, a quantum coupling measure **reads structure that
+   PLV cannot**. On the simplest embedding, which carries the first harmonic only, it follows PLV.
+2. It reads **no further than a classical statistic of the same two harmonics**, and with equal
+   weights on the harmonics it needs more data to do so.
+3. On the *relative phase* of the two harmonics, that is, how the second is shifted against the
+   first, the quantum measures computed in the course read **less** than a classical statistic: they
+   are blind to the direction of the shift.
+4. What quantum optimal transport brings is a **unified geometric framework**: one state, one distance
+   from independence, and the embedding as the single dial that sets what the coupling measure reads.
+   On the synthetic systems of the capstone that is a unification, not a gain in sensitivity.
+
+The last module then measures how finely a real IBM processor reads a mutual information, on a
+two-qubit probe, and sets the capstone's numbers against that resolution. It runs offline on a noisy
+device model by default, and on the real device if you switch it on.
 
 ## Quick start
 
@@ -40,7 +63,8 @@ English.
 
 ## How the course is structured
 
-Five module folders — plain `.ipynb` (not Jupyter Book), per-module numbering `NN_snake_title.ipynb`:
+The six module folders hold plain `.ipynb` files (not a Jupyter Book), numbered within each module as
+`NN_snake_title.ipynb`:
 
 - **`00_GettingStarted`** — environment setup, and what optimal transport is.
 - **`01_QuantumFoundations`** — qubits and complex amplitudes, the inner product, gates (Pauli,
@@ -50,9 +74,10 @@ Five module folders — plain `.ipynb` (not Jupyter Book), per-module numbering 
 - **`03_ClassicalOptimalTransport`** — Monge/Kantorovich, Wasserstein, Sinkhorn, the Gaussian/Bures
   bridge.
 - **`04_QuantumOptimalTransport`** — the quantum coupling SDP, quantum Sinkhorn, the QOT "zoo", and the
-  A+B+C capstone.
+  capstone that tests the coupling measure against PLV and its classical neighbours.
 - **`05_RealQuantumHardware`** — run the course's results (Born rule, tomography, quantum mutual
-  information, Bures distance, the capstone) on a real IBM QPU through the runtime primitives.
+  information, Bures distance) on a real IBM QPU through the runtime primitives, and set the capstone's
+  numbers against the resolution of the device.
 
 Each notebook declares its prerequisites and builds on the ones before it. To find which notebook
 covers a concept (and what it builds on), read **`llms.txt`** or ask your assistant.

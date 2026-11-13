@@ -376,9 +376,10 @@ def entangling_joint_density(
     Forms the per-sample product :math:`|\Psi(t)\rangle = |\psi_A(t)\rangle \otimes
     |\psi_B(t)\rangle`, applies a fixed joint unitary :math:`U`, and averages:
     :math:`\rho_{AB} = \mathbb{E}_t\bigl[\,U|\Psi(t)\rangle\langle\Psi(t)|U^\dagger\,\bigr]`.
-    Unlike :func:`joint_density_from_states` (the special case :math:`U = I`), the result is
-    generally **non-separable** --- :math:`U` correlates the two subsystems per sample before
-    the average.
+    Unlike :func:`joint_density_from_states` (the special case :math:`U = I`), each per-sample
+    state is entangled in general. The averaged state need not be: it equals
+    :math:`U \rho_{\text{plain}} U^\dagger`, and on the ensembles of 04/18 its partial
+    transpose has no negative eigenvalue, so no entanglement is detected in it.
 
     Parameters
     ----------
@@ -398,9 +399,9 @@ def entangling_joint_density(
     When to use
         Use to test the **structural bound** of the research extension (04/18): does entangling
         a deterministic embedding of *classical* phase data let a QOT measure detect a moment
-        the embedding does not capture? It does not --- even with genuine entanglement, every
-        matrix element of ``rho`` remains an empirical average of a deterministic function of
-        the classical phases, hence a classical (cross-)moment. Use
+        the embedding does not capture? It does not --- the gate is the same for every
+        sample, so every matrix element of ``rho`` remains an empirical average of a
+        deterministic function of the classical phases, hence a classical (cross-)moment. Use
         :func:`joint_density_from_states` for the ordinary (product) joint state; use this only
         for the entangling probe.
 
@@ -483,7 +484,8 @@ def joint_density_from_states(
 
     References
     ----------
-    Trevisan et al., "An optimal-transport approach to ...", arXiv:2202.02091 (2022).
+    D. Trevisan, "Quantum optimal transport: an invitation", Boll. Unione Mat. Ital.
+    18, 347 (2025), DOI:10.1007/s40574-024-00428-5.
     K. V. Mardia & P. E. Jupp, *Directional Statistics* (Wiley, 2000),
     DOI:10.1002/9780470316979.
     """

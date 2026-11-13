@@ -18,8 +18,8 @@ strength :math:`K`:
 
 References: Y. Kuramoto, *Chemical Oscillations, Waves, and Turbulence* (Springer,
 1984); J.-P. Lachaux, E. Rodriguez, J. Martinerie, F. Varela, "Measuring phase
-synchrony in brain signals", *Hum. Brain Mapp.* **8**, 194 (1999); Trevisan,
-arXiv:2202.02091 (2022).
+synchrony in brain signals", *Hum. Brain Mapp.* **8**, 194 (1999); D. Trevisan,
+"Quantum optimal transport: an invitation", *Boll. Unione Mat. Ital.* **18**, 347 (2025).
 """
 
 from __future__ import annotations
@@ -227,7 +227,7 @@ def sweep_coupling_measures(
 
     Lachaux, J.-P., Rodriguez, E., Martinerie, J., & Varela, F. J. (1999).
     Measuring phase synchrony in brain signals. *Human Brain Mapping*, 8(4), 194--208.
-    https://doi.org/10.1002/hbm.10130
+    https://doi.org/10.1002/(SICI)1097-0193(1999)8:4<194::AID-HBM4>3.0.CO;2-C
     """
     out: dict[str, list[float]] = {
         key: [] for key in ("K", "qmi", "bures", "plv", "corr")
