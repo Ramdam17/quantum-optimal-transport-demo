@@ -1,6 +1,7 @@
 """Quantum information theory: relative entropy, mutual information, Bures.
 
-S7 lifts the classical information toolbox of S5 to density matrices:
+Notebooks ``02/10`` to ``02/13`` lift the classical information toolbox of ``02/01`` to
+``02/05`` to density matrices:
 
 - **Umegaki relative entropy** :math:`S(\\rho \\| \\sigma) = \\mathrm{tr}\\,\\rho(\\log\\rho - \\log\\sigma)`
   --- the quantum KL, the parent of every entropic regulariser in QOT.
@@ -9,7 +10,7 @@ S7 lifts the classical information toolbox of S5 to density matrices:
 - **Quantum conditional entropy** :math:`S(A|B) = S(\\rho_{AB}) - S(\\rho_B)`, which can be
   **negative** --- a purely quantum effect (Cerf and Adami, 1997).
 - **Bures distance** :math:`d_B(\\rho, \\sigma) = \\sqrt{2(1 - F(\\rho, \\sigma))}` --- the
-  quantum lift of the Fisher--Rao distance of S6 (here :math:`F` is the Uhlmann
+  quantum lift of the Fisher--Rao distance of ``02/08`` (here :math:`F` is the Uhlmann
   fidelity, not its square).
 
 References: M. A. Nielsen and I. L. Chuang, *Quantum Computation and Quantum Information*

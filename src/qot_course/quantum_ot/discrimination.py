@@ -1,9 +1,10 @@
-r"""The discriminating experiment --- two ensembles PLV cannot tell apart, QOT can (Plan F, 04/15).
+r"""The discriminating experiment --- two ensembles with one PLV and two second harmonics.
 
-This module is the **scientific crux** of the course: it builds two synthetic dyads with
-**identical phase-locking value by construction** but **different higher-order phase
-structure**, and shows that PLV (and the naive phase-qubit embedding) cannot tell them
-apart while a richer multi-frequency embedding's quantum mutual information can.
+This module builds two synthetic dyads with **identical phase-locking value by
+construction** but **different higher-order phase structure**. PLV and the naive
+phase-qubit embedding cannot tell them apart; the quantum mutual information of a richer
+multi-frequency embedding can, and so can a classical statistic of the second harmonic,
+which the capstone notebooks set beside it.
 
 The mechanism is *higher-order phase coupling*. We draw the phase difference
 :math:`\delta = \theta_A - \theta_B` from the truncated-Fourier circular density

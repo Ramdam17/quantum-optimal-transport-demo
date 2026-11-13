@@ -109,7 +109,7 @@ def test_wasserstein_interpolation_endpoints_are_close_to_inputs():
 
 
 def test_mixture_is_bimodal_but_wasserstein_slides_for_separated_bumps():
-    """The S6 punchline: same endpoints, two geometries, two midpoints."""
+    """The result of 02/09: same endpoints, two geometries, two midpoints."""
     support = np.linspace(0.0, 24.0, 200)
     p0 = _normalized_bump(support, 4.0, 1.2)
     p1 = _normalized_bump(support, 20.0, 1.2)

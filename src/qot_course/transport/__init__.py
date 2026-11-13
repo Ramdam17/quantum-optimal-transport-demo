@@ -1,1 +1,1 @@
-"""Classical optimal transport tools for the QOT course (M3, starting at S8)."""
+"""Classical optimal transport tools for the QOT course (module 03)."""

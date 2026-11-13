@@ -1,6 +1,6 @@
 """Entropic optimal transport: the Sinkhorn algorithm and Amari's KL bridge.
 
-S10 regularises the Kantorovich LP by an entropy bonus:
+Notebooks ``03/09`` to ``03/11`` regularise the Kantorovich LP by an entropy bonus:
 
 .. math::
     P^\\star_\\varepsilon = \\arg\\min_{P \\in T(a, b)}\\
@@ -16,8 +16,8 @@ A one-line algebra reveals **Amari's bridge**: with the Gibbs kernel
     = \\langle C, P\\rangle - \\varepsilon H(P) + \\text{const},
 
 so the entropic-OT plan is the **KL projection** of the Gibbs kernel onto the
-transportation polytope :math:`T(a, b)`. This is exactly where Wasserstein (M3) meets
-KL / Fisher--Rao (M2). The course names the identity after Amari's information
+transportation polytope :math:`T(a, b)`. This is exactly where Wasserstein (module 03) meets
+KL / Fisher--Rao (module 02). The course names the identity after Amari's information
 geometry; the identity itself is due to Cuturi (2013), who regularised OT with entropy
 and solved it by Sinkhorn scaling, and to Benamou, Carlier, Cuturi, Nenna and Peyre
 (2015), who wrote it as a KL projection solved by iterated Bregman projections.

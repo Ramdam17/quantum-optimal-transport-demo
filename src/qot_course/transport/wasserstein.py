@@ -1,6 +1,6 @@
 """Wasserstein distances: LP-based general case and the 1-D closed form.
 
-S9 promotes the Kantorovich LP cost to a genuine *metric* on probability distributions
+Notebook ``03/05`` promotes the Kantorovich LP cost to a genuine *metric* on probability distributions
 --- the Wasserstein-:math:`p` distance ---
 
 .. math::

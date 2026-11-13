@@ -1,6 +1,7 @@
 """Quantum optimal transport as a semidefinite program (SDP).
 
-S13 promotes the Kantorovich LP of S8 to a genuine operator-level problem. A
+Notebook ``04/04`` promotes the Kantorovich LP of ``03/03`` to a genuine operator-level
+problem. A
 **quantum coupling** of two states :math:`\\rho_A \\in \\mathcal{S}(\\mathcal{H}_A),
 \\rho_B \\in \\mathcal{S}(\\mathcal{H}_B)` is a bipartite density matrix
 :math:`\\rho_{AB}` on :math:`\\mathcal{H}_A \\otimes \\mathcal{H}_B` whose partial
@@ -23,7 +24,7 @@ Two canonical cost operators appear in the literature:
 - **Quadratic position cost** :math:`C = (X_A \\otimes I - I \\otimes X_B)^2` for some
   diagonal "position" observable :math:`X`. For diagonal :math:`\\rho_A, \\rho_B` in the
   :math:`X` eigenbasis the SDP returns the classical :math:`W_2^2` with cost
-  :math:`(i - j)^2` --- the diagonal-collapse principle of S12.
+  :math:`(i - j)^2` --- the diagonal-collapse principle of ``04/01``.
 
 References: S. Cole, M. Eckstein, S. Friedland, K. Zyczkowski, "On quantum optimal
 transport", Math. Phys. Anal. Geom. 26, 14 (2023), doi:10.1007/s11040-023-09456-7 (the

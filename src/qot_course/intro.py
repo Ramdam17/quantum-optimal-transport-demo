@@ -1,4 +1,4 @@
-"""Session 1 helpers: a small environment check.
+"""Helpers of module 00: a small environment check.
 
 Plotting lives in :mod:`qot_course.viz` (reused across the whole course).
 """

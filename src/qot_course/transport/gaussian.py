@@ -1,6 +1,6 @@
 """Gaussian Wasserstein --- the closed form and the bridge to density matrices.
 
-S11 opens the door to M4. For two multivariate Gaussians :math:`\\mathcal{N}(m_0,
+This closed form (``03/12``) opens the door to module 04. For two multivariate Gaussians :math:`\\mathcal{N}(m_0,
 \\Sigma_0), \\mathcal{N}(m_1, \\Sigma_1)` on :math:`\\mathbb{R}^d`, the squared
 2-Wasserstein distance is closed form (Dowson & Landau, 1982; Olkin & Pukelsheim, 1982;
 Givens & Shortt, 1984):
@@ -11,9 +11,9 @@ Givens & Shortt, 1984):
 
 The matrix term is the **Bures matrix distance** (Bhatia, Jain & Lim, 2019), and when
 :math:`\\Sigma_0, \\Sigma_1` are unit-trace PSD matrices it equals the squared Bures
-distance between *density matrices* that we already met in S7. **This is the bridge to
+distance between *density matrices* that we already met in ``02/13``. **This is the bridge to
 quantum OT**: replace covariance matrices by density matrices and the same formula
-defines a quantum Wasserstein on states (S13--S14).
+defines a quantum Wasserstein on states (taken up in module 04).
 
 For zero-mean Gaussians the optimal transport map is *affine*:
 :math:`T(x) = A\\,x` with :math:`A = \\Sigma_0^{-1/2}(\\Sigma_0^{1/2}\\Sigma_1
@@ -66,7 +66,7 @@ def bures_matrix_distance(sigma_0: np.ndarray, sigma_1: np.ndarray) -> float:
     \\mathrm{tr}\\sqrt{\\Sigma_0^{1/2}\\Sigma_1\\Sigma_0^{1/2}}` for any pair of
     Hermitian PSD matrices. For **unit-trace** :math:`\\rho_0, \\rho_1` (i.e. density
     matrices) this equals :math:`2(1 - F_U(\\rho_0, \\rho_1)) = d_B^2(\\rho_0, \\rho_1)`
-    --- the squared Bures distance we met in S7.
+    --- the squared Bures distance we met in ``02/13``.
     """
     sigma_0 = _hermitize(np.asarray(sigma_0, dtype=complex))
     sigma_1 = _hermitize(np.asarray(sigma_1, dtype=complex))

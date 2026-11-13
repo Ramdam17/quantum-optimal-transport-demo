@@ -1,4 +1,4 @@
-"""Closed-form validation of the public gate + observable API (Plan K)."""
+"""Closed-form validation of the public gate + observable API."""
 
 import numpy as np
 import pytest

@@ -1,6 +1,7 @@
 """Discrete optimal transport: cost matrices, the Kantorovich LP, polytope checks.
 
-S8 formalises the Monge--Kantorovich problem in the discrete setting. Given a source
+Module 03 opens (``03/01`` to ``03/04``) by formalising the Monge--Kantorovich problem in
+the discrete setting. Given a source
 histogram :math:`a \\in \\Delta^n` and target :math:`b \\in \\Delta^m` and a cost matrix
 :math:`C \\in \\mathbb{R}_+^{n \\times m}`, the **Kantorovich linear program** is
 

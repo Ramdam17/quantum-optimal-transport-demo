@@ -1,10 +1,10 @@
-"""Preview tools for S12 --- expose precisely what classical OT misses on density matrices.
+"""Preview tools for the opening of module 04 --- expose precisely what classical OT misses on density matrices.
 
-S12 makes the case for quantum optimal transport. Three quick helpers do most of the
+Notebooks ``04/01`` to ``04/03`` make the case for quantum optimal transport. Three quick helpers do most of the
 work: a **commutator** (the operator measure of how "quantum" two states are together),
 a **diagonal extractor** in the computational basis (the naive classical reduction), and
 a **same-diagonal predicate** (the diagnostic for "states with identical Z-statistics").
-These are deliberately tiny; the actual quantum OT machinery starts in S13.
+These are deliberately tiny; the actual quantum OT machinery starts in ``04/04``.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def diagonal_in_computational_basis(rho: np.ndarray) -> np.ndarray:
     """Return the real diagonal of a density matrix in the Z basis.
 
     This is the **naive** classical reduction of a quantum state to a probability
-    vector --- and the source of the diagonal-collapse problem of S12: two density
+    vector --- and the source of the diagonal-collapse problem of ``04/01``: two density
     matrices with the same diagonal in one basis are *not* the same state. The output
     is contiguous (POT / scipy LP solvers require this).
     """
@@ -47,7 +47,7 @@ def same_diagonal(
 
     When true, classical OT applied to the diagonals returns the *same* number for
     both states --- but the states themselves may differ in coherences (off-diagonals)
-    or in spectrum. The motivating example of S12 is ``|+><+|`` vs ``I/2``, both with
+    or in spectrum. The motivating example of module 04 is ``|+><+|`` vs ``I/2``, both with
     Z-diagonal ``(1/2, 1/2)`` but different states.
     """
     return bool(

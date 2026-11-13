@@ -1,1 +1,1 @@
-"""Quantum optimal transport — Movement 4 of the QOT course (S12+)."""
+"""Quantum optimal transport — module 04 of the QOT course."""
