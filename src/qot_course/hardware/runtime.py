@@ -54,10 +54,30 @@ def get_backend(prefer_hardware: bool = False):
     return AerSimulator()
 
 
-def get_noisy_backend(fake: str = "FakeManilaV2"):
+#: Offline twin used by :func:`select_backend` (module 05): the stored calibration snapshot of
+#: ``ibm_marrakesh`` (156-qubit Heron, native two-qubit gate ``cz``), the device on which the real
+#: runs quoted in module 05 were made.
+DEFAULT_FAKE_BACKEND = "FakeMarrakesh"
+
+#: Default of :func:`get_noisy_backend`, kept at the 5-qubit ``FakeManilaV2`` because notebooks
+#: 01/11 and 01/15 read ``FakeManilaV2`` calibration values for the qubit the noisy backend uses.
+LEGACY_FAKE_BACKEND = "FakeManilaV2"
+
+
+def get_noisy_backend(fake: str = LEGACY_FAKE_BACKEND):
     """Return an ``AerSimulator`` carrying a real device's noise model.
 
-    Falls back to a noiseless simulator if the fake backend cannot be loaded.
+    ``AerSimulator.from_backend`` reads the fake device's stored calibration snapshot and builds
+    a noise model from it: on every gate a depolarizing error followed by a thermal-relaxation
+    error (from the qubits' T1 and T2), and a read-out error on every measurement. Falls back to
+    a noiseless simulator if the fake backend cannot be loaded.
+
+    Parameters
+    ----------
+    fake : str
+        Name of a class in ``qiskit_ibm_runtime.fake_provider``. The default, ``"FakeManilaV2"``
+        (5 qubits, ``cx``), is what notebooks 01/11 and 01/15 expect; module 05 goes through
+        :func:`select_backend`, whose default is ``"FakeMarrakesh"``.
     """
     try:
         from qiskit_ibm_runtime import fake_provider
@@ -71,7 +91,7 @@ def get_noisy_backend(fake: str = "FakeManilaV2"):
         return AerSimulator()
 
 
-def select_backend(use_hardware: bool = False, fake: str = "FakeManilaV2"):
+def select_backend(use_hardware: bool = False, fake: str = DEFAULT_FAKE_BACKEND):
     """Select a quantum backend and report, honestly, what was chosen.
 
     Parameters
@@ -82,7 +102,8 @@ def select_backend(use_hardware: bool = False, fake: str = "FakeManilaV2"):
         a local simulator and report ``is_real=False``. If ``False`` (default),
         return an offline ``AerSimulator`` carrying ``fake``'s noise model.
     fake : str
-        Name of the fake backend whose noise model to load offline.
+        Name of the fake backend whose noise model to load offline (default
+        ``"FakeMarrakesh"``, see :func:`get_noisy_backend`).
 
     Returns
     -------

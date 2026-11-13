@@ -1,7 +1,7 @@
 """Execute every 00–05 course notebook end-to-end, offline, to guard against silent breakage.
 
 Marked ``notebooks`` (slow): the fast inner loop deselects it with ``-m 'not notebooks'``;
-checkpoints run the full suite. Every cell runs on ``AerSimulator`` / ``FakeManilaV2`` (offline) —
+checkpoints run the full suite. Every cell runs on ``AerSimulator`` / a fake-device noise model (offline) —
 no network and no IBM credentials required. The notebook object is executed in memory, so the
 committed files stay output-free.
 
