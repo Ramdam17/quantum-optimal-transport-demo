@@ -43,7 +43,7 @@ The course holds a consistent standard so it reads as a coherent whole:
   condescension; no decorative emoji. Warmth lives in the words, and never softens the science.
 
 Every figure is followed by a "Read the figure" explanation; every notebook ends with tiered "Your turn"
-exercises, a "What you built" recap, and a dictionary row where relevant. See `AGENTS.md` for the
+exercises, a "What you built" recap, and, where relevant, the dictionary rows it earns (the complete table is `notebooks/dictionary.ipynb`). See `AGENTS.md` for the
 tutoring philosophy and `docs/notebook_template.md` for the full notebook contract.
 
 ## Proposing changes

@@ -62,7 +62,10 @@ def _sqrtm_psd(matrix: np.ndarray) -> np.ndarray:
 
 
 def fidelity(rho: np.ndarray, sigma: np.ndarray) -> float:
-    """Uhlmann fidelity F(rho, sigma) = (tr sqrt(sqrt(rho) sigma sqrt(rho)))^2."""
+    """Fidelity F(rho, sigma) = (tr sqrt(sqrt(rho) sigma sqrt(rho)))^2 -- the squared (Jozsa 1994)
+    convention used throughout the course (a probability; |<phi|psi>|^2 for pure states).
+    Its square root is the Uhlmann fidelity F_U (Nielsen & Chuang's "fidelity"), used by the
+    Bures distance. Convention fixed in notebook 01/14."""
     rho = np.asarray(rho, dtype=complex)
     sigma = np.asarray(sigma, dtype=complex)
     sqrt_rho = _sqrtm_psd(rho)

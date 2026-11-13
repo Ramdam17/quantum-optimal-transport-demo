@@ -6,10 +6,13 @@ import numpy as np
 
 
 def shannon_entropy(p: np.ndarray, base: float = 2.0) -> float:
-    """Shannon entropy H(p) = -sum p log p (in bits by default)."""
+    """Shannon entropy H(p) = -sum p log p (in bits by default).
+
+    Zero entries are dropped (the 0 log 0 = 0 convention); ``base=np.e`` gives nats.
+    """
     p = np.asarray(p, dtype=float).ravel()
     p = p[p > 0]
-    return float(-np.sum(p * np.log(p)) / np.log(base))
+    return float(-np.sum(p * np.log(p)) / np.log(base)) + 0.0   # + 0.0 turns -0.0 into 0.0
 
 
 def kl_divergence(p: np.ndarray, q: np.ndarray, base: float = 2.0) -> float:

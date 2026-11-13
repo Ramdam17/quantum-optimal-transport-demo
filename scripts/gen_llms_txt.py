@@ -70,7 +70,7 @@ def build_llms_txt() -> str:
     current_group = None
     for p in nbs:
         group = p.parent.relative_to(NB_DIR).as_posix()
-        group = "(flat)" if group in (".", "") else group
+        group = "Course-wide" if group in (".", "") else group
         if group != current_group:
             out.append(f"## {group}")
             current_group = group

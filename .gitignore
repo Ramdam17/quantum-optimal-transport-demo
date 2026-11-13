@@ -37,6 +37,7 @@ logs/
 # Internal / process docs — kept on disk for resumable work, not published
 /CLAUDE.md
 /docs/audit-notebooks-*.md
+/docs/qot-research-extension-*.md
 /docs/superpowers/
 # Generated figures (palette swatch, etc.)
 /figures/

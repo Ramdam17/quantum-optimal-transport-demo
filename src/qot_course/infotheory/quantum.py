@@ -103,8 +103,9 @@ def bures_distance(rho: np.ndarray, sigma: np.ndarray) -> float:
     """Bures distance ``d_B(rho, sigma) = sqrt(2 (1 - F_U(rho, sigma)))``.
 
     Here ``F_U = tr sqrt(sqrt(rho) sigma sqrt(rho))`` is the **Uhlmann fidelity** (not
-    its square --- our package's :func:`fidelity` follows the Nielsen--Chuang
-    convention of returning :math:`F_U^2`, which we take a square root of). Bures is
+    its square --- our package's :func:`fidelity` follows the squared Jozsa (1994)
+    convention and returns :math:`F_U^2`, of which we take the square root; Nielsen--Chuang's
+    "fidelity" is the root :math:`F_U` itself; convention fixed in notebook 01/14). Bures is
     the quantum analogue of the Fisher--Rao distance of S6: for *diagonal* states it
     reduces to the Bhattacharyya / Hellinger distance on probability vectors.
     """
