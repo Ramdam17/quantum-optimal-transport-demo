@@ -155,8 +155,8 @@ def sweep_coupling_measures(
     defined in this module.  Returns a dictionary whose five arrays are all of
     length ``G = len(k_grid)``.
 
-    This function is the computational core that feeds **notebook 04/12** (four-measure
-    sweep: QMI, Bures, PLV, corr against K) and **notebook 04/13** (the *[C] redundancy
+    This function is the computational core that feeds **notebook 04/13** (four-measure
+    sweep: QMI, Bures, PLV, corr against K) and **notebook 04/14** (the *[C] redundancy
     reveal*: with the naive phase embedding the QMI is near-monotone in PLV, so
     ``Spearman(PLV, QMI) ~ 1`` across the sweep --- meaning the quantum measure cannot
     outperform PLV on this embedding by construction; the embedding encodes
@@ -192,7 +192,7 @@ def sweep_coupling_measures(
     When to use
     -----------
     Use this function whenever you need all four measures evaluated consistently
-    across a coupling grid (e.g. to produce the 04/12 sweep figure or the 04/13
+    across a coupling grid (e.g. to produce the 04/13 sweep figure or the 04/14
     Spearman scatter).  If you only need one measure at a single K, call the
     individual :func:`coupling_qmi`, :func:`coupling_bures`, :func:`plv`, or
     :func:`cosine_correlation` directly.

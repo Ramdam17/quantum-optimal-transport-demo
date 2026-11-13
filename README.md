@@ -6,7 +6,7 @@ measure of how steadily two signals keep the same phase difference, and the test
 coupling measure built from QOT reads past it, with a classical statistic beside it at each test.
 
 The course is built **one concept per notebook**: short, focused "bricks" build progressively to a
-"synthesis" notebook, so each idea lands before the next arrives. **77 notebooks across 6 modules**,
+"synthesis" notebook, so each idea lands before the next arrives. **78 notebooks across 6 modules**,
 sized for ~1-hour sessions and a mixed-background audience, and meant to be worked through with an AI
 tutor alongside.
 
@@ -21,7 +21,7 @@ results.
 
 ## The capstone — how far quantum optimal transport reads past PLV
 
-The capstone (`11` to `18` in `notebooks/04_QuantumOptimalTransport/`) does not hand-wave its
+The capstone (`12` to `20` in `notebooks/04_QuantumOptimalTransport/`) does not hand-wave its
 question: can a quantum coupling measure read something the phase-locking value cannot?
 
 Three words carry the answer. Write Δ for the phase difference between two signals. PLV is the length

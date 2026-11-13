@@ -35,7 +35,7 @@ DRAWS_A_FIGURE = re.compile(
 READING = re.compile(r"\s*\*\*Read (the|both|each|all|this)")
 
 # The closing synthesis of module 04 is a recapitulation, not a lesson: it has its own frame.
-FRAME_EXEMPT = {"04_QuantumOptimalTransport/21_frontier_synthesis"}
+FRAME_EXEMPT = {"04_QuantumOptimalTransport/22_frontier_synthesis"}
 # The first tour of the library asks nothing of the learner yet.
 EXERCISES_EXEMPT = FRAME_EXEMPT | {"00_GettingStarted/02_what_is_optimal_transport"}
 # ``uv run jupyter lab`` offers this kernel by default; a named kernel exists on one machine only.

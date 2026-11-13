@@ -1,6 +1,6 @@
 """Two noisy phase oscillators with a free second harmonic of the coupling.
 
-The pair of notebooks 04/11 to 04/14 couples two phase oscillators through
+The pair of notebooks 04/12 to 04/15 couples two phase oscillators through
 :math:`K \\sin(\\theta_j - \\theta_i)`, a single knob. This module adds the next
 harmonic of the phase difference with its own, independent strength:
 
@@ -149,7 +149,7 @@ def simulate_biharmonic_dyad(
     dt : float, default 0.05
         Euler--Maruyama step (s).
     omega_1, omega_2 : float, default 1.0 and 1.2
-        Natural frequencies (rad/s), as in notebook 04/11.
+        Natural frequencies (rad/s), as in notebook 04/12.
     noise_std : float, default 0.3
         Noise amplitude :math:`\\sigma` (rad / sqrt(s)).
     burn_in : float, default 50.0
@@ -283,7 +283,7 @@ def stationary_moments(
     k2 : float
         Second-harmonic coupling :math:`K_2` (rad/s); the sign is meaningful.
     omega_1, omega_2 : float, default 1.0 and 1.2
-        Natural frequencies (rad/s), as in notebook 04/11.
+        Natural frequencies (rad/s), as in notebook 04/12.
     noise_std : float, default 0.3
         Noise amplitude :math:`\\sigma` of each oscillator (rad / sqrt(s)).
     max_harmonic : int, default 2
@@ -540,7 +540,7 @@ def discretised_stationary_moments(
     dt : float
         Euler--Maruyama step :math:`\\delta t` of the simulated scheme (s).
     omega_1, omega_2 : float, default 1.0 and 1.2
-        Natural frequencies (rad/s), as in notebook 04/11.
+        Natural frequencies (rad/s), as in notebook 04/12.
     noise_std : float, default 0.3
         Noise amplitude :math:`\\sigma` of each oscillator (rad / sqrt(s)).
     max_harmonic : int, default 2

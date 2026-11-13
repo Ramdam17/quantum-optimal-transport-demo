@@ -109,7 +109,7 @@ def sample_phase_difference(
     -----
     When to use
         Use to generate phase differences with *prescribed* first and second circular
-        moments --- the building block of :func:`matched_plv_ensembles` and the 04/15
+        moments --- the building block of :func:`matched_plv_ensembles` and the 04/16
         discriminating experiment. When you only need a unimodal phase distribution with a
         single concentration parameter, the von Mises sampler
         (``numpy.random.Generator.vonmises``) is simpler; this two-harmonic density is the
@@ -206,7 +206,7 @@ def matched_plv_ensembles(
     Notes
     -----
     When to use
-        Use to produce the two ensembles compared in notebook 04/15 (and the thesis test):
+        Use to produce the two ensembles compared in notebook 04/16 (and the thesis test):
         feed each ``(theta_A, theta_B)`` pair to :func:`~qot_course.quantum_ot.capstone.plv`
         (matched), to the naive
         :func:`~qot_course.quantum_ot.capstone.joint_density_matrix` +
@@ -219,7 +219,7 @@ def matched_plv_ensembles(
         knob), use :func:`~qot_course.quantum_ot.capstone.sweep_coupling_measures`; this
         function is for the orthogonal *discrimination* question.
 
-    Use a large ``n``. Notebook ``04/15`` draws 150,000 samples per ensemble; the test suite
+    Use a large ``n``. Notebook ``04/16`` draws 150,000 samples per ensemble; the test suite
     draws 1,200,000 so that its margins hold for every seed; the example below draws 80,000
     to stay fast. PLV and the circular moments are Monte-Carlo estimates whose error shrinks
     like :math:`1/\sqrt{n}`, and the thesis requires
