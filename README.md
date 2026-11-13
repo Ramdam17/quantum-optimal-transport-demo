@@ -54,8 +54,22 @@ device model by default, and on the real device if you switch it on.
 ## Quick start
 
 ```bash
+uv sync               # install the course into a local .venv folder
+uv run jupyter lab    # open the notebooks
+```
+
+Jupyter starts inside the project's environment, so its default kernel, *Python 3 (ipykernel)*, is
+the course's own. Begin with `notebooks/00_GettingStarted/01_environment_setup.ipynb`, which checks
+the installation, and run each notebook from top to bottom: they are committed without outputs. In an
+editor such as VS Code, choose the Python interpreter inside the project's `.venv` folder as the
+kernel.
+
+To run the tests as well:
+
+```bash
 uv sync --extra dev
-uv run pytest
+uv run pytest -m "not notebooks"    # the fast suite
+uv run pytest                       # also executes every notebook end to end (slow)
 ```
 
 All deliverables (code, notebooks, summaries, glossary, the classical ↔ quantum dictionary, `notebooks/dictionary.ipynb`) are in
