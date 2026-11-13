@@ -1,7 +1,6 @@
 # Global defaults shared across sessions. Session configs override these.
 seed: 42
 paths:
-  summaries_dir: "summaries"
   docs_dir: "docs"
 
 # Capstone simulation defaults (used by sweep_coupling_measures and the
