@@ -71,7 +71,7 @@ value of quantum optimal transport here is a **unified geometric framework**: on
 distance from independence, so that choosing which statistic to compute becomes choosing which
 embedding to use. That is a unification, and on the systems of the capstone it is not a gain in
 sensitivity. The evidence is one hand-built pair of ensembles and one model of coupled oscillators,
-all synthetic; the course did not test real recordings. (`04/13`–`04/17`.)
+all synthetic; the course did not test real recordings. (`04/13`–`04/18`.)
 
 ## 2. Quantum mutual information and entanglement
 
