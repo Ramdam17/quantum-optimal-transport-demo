@@ -147,3 +147,36 @@ def test_llms_txt_is_the_output_of_its_generator() -> None:
 
     committed = (ROOT / "llms.txt").read_text(encoding="utf-8")
     assert committed == build_llms_txt(), "run: uv run python scripts/gen_llms_txt.py"
+
+
+def _module_sizes() -> dict[str, int]:
+    """Number of lesson notebooks in each module folder, keyed by the module number."""
+    sizes: dict[str, int] = {}
+    for path in _lesson_notebooks():
+        number = path.parent.name[:2]
+        sizes[number] = sizes.get(number, 0) + 1
+    return sizes
+
+
+def test_readme_states_the_number_of_notebooks() -> None:
+    """The count in ``README.md`` is the number of notebooks in the module folders."""
+    sizes = _module_sizes()
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    stated = re.search(r"\*\*(\d+) notebooks across (\d+) modules\*\*", readme)
+    assert stated, "README.md no longer states '**N notebooks across M modules**'"
+    assert (int(stated.group(1)), int(stated.group(2))) == (
+        sum(sizes.values()),
+        len(sizes),
+    )
+
+
+def test_closing_notebook_counts_each_module() -> None:
+    """The table of the closing notebook of module 04 gives the size of each module."""
+    sizes = _module_sizes()
+    closing = NOTEBOOKS_ROOT / "04_QuantumOptimalTransport"
+    (path,) = closing.glob("[0-9][0-9]_frontier_synthesis.ipynb")
+    prose = "\n".join(source for kind, source, _ in _cells(path) if kind == "markdown")
+    rows = dict(
+        re.findall(r"^\| \*\*(\d\d) — [^|]*\*\* \| (\d+) \|", prose, re.MULTILINE)
+    )
+    assert {number: int(count) for number, count in rows.items()} == sizes
