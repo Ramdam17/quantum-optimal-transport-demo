@@ -230,7 +230,7 @@ def load_dictionary(path: Path) -> list[Row]:
 def dictionary_cell(nb_path: Path) -> str | None:
     """Return the markdown of the cell that links to the dictionary, or ``None``.
 
-    The cell is recognised by its link, as the design prescribes.
+    The cell is recognised by its link to the dictionary notebook.
     """
     for source in _markdown_cells(nb_path):
         if _LINK.search(source):
