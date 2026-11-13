@@ -8,18 +8,20 @@ S9 promotes the Kantorovich LP cost to a genuine *metric* on probability distrib
                      \\int c(x, y)^p\\, \\mathrm{d}\\pi(x, y) \\right)^{1/p},
 
 with :math:`c(x, y) = |x - y|` for points in :math:`\\mathbb{R}^d`. On a 1-D ground space
-the LP collapses to *sort-and-match by quantile* (Brenier; Villani, 2003, Thm.~2.18):
+the LP collapses to *sort-and-match by quantile* (Peyre and Cuturi, 2019, Remark 2.30 in
+the numbering of arXiv:1803.00567v4):
 
 .. math::
     W_p^p(\\mu, \\nu) = \\int_0^1 \\bigl|F_\\mu^{-1}(u) - F_\\nu^{-1}(u)\\bigr|^p\\,
                        \\mathrm{d}u,
 
 which for discrete atomic distributions is a finite sum over the *common refinement* of
-the two CDFs --- computable in :math:`\\mathcal{O}((n + m)\\log(n + m))` instead of
-:math:`\\mathcal{O}(n^3)` for the LP. The closed form vanishes in higher dimensions
+the two CDFs (the optimum is then a plan that may split atoms, not a map) --- computable
+in :math:`\\mathcal{O}((n + m)\\log(n + m))` instead of :math:`\\mathcal{O}(n^3)` for the
+LP. The closed form vanishes in higher dimensions
 because the quantile function does.
 
-References: C. Villani, *Topics in Optimal Transportation* (AMS, 2003), ch.~2; G. Peyre
+References: C. Villani, *Topics in Optimal Transportation* (AMS, 2003); G. Peyre
 and M. Cuturi, *Computational Optimal Transport* (NoW, 2019), ch.~2; R. McCann, "A
 convexity principle for interacting gases", Adv. Math. 128, 153 (1997).
 """

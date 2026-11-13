@@ -143,9 +143,11 @@ def wasserstein_interpolation_1d(
 ) -> np.ndarray:
     """McCann displacement interpolation between two 1-D discrete distributions.
 
-    In one dimension the optimal map is the quantile composition ``Q_q . F_p`` (Brenier,
-    1991): each ``p``-mass element at quantile ``u`` moves to the ``q``-position with
-    the same quantile ``u``. We approximate the McCann interpolation by sampling
+    In one dimension optimal transport matches mass quantile to quantile, the
+    composition ``Q_q . F_p`` (Peyre and Cuturi, *Computational Optimal Transport*,
+    2019, Remark 2.30 in the numbering of arXiv:1803.00567v4): each ``p``-mass element
+    at quantile ``u`` moves to the ``q``-position with the same quantile ``u``. We
+    approximate the McCann interpolation by sampling
     ``n_particles`` equi-mass particles via inverse CDFs, sliding each from its
     ``p``-position to its ``q``-position by a fraction ``t``, then rebinning on the
     original support.
