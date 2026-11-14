@@ -24,9 +24,9 @@ results.
 The capstone (`12` to `20` in `notebooks/04_QuantumOptimalTransport/`) does not hand-wave its
 question: can a quantum coupling measure read something the phase-locking value cannot?
 
-Three words carry the answer. Write Δ for the phase difference between two signals. PLV is the length
-of the average of `e^{iΔ}`, and that average is the *first harmonic* of the phase difference. The
-*second harmonic* is the average of `e^{2iΔ}`, which PLV discards; it tells, for instance, whether
+Three words carry the answer. Write δ for the phase difference between two signals. PLV is the length
+of the average of `e^{iδ}`, and that average is the *first harmonic* of the phase difference. The
+*second harmonic* is the average of `e^{2iδ}`, which PLV discards; it tells, for instance, whether
 the phase difference gathers around two opposite values instead of one. An *embedding* is the recipe
 that writes the two signals into a quantum state, and it decides which harmonics the state carries.
 

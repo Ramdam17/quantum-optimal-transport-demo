@@ -13,9 +13,9 @@ Each entry gives a claim you **may** make, the nearby claim you **may not**, and
 ## Terms used here
 
 - **PLV** (phase-locking value) is the modulus of the first circular moment of the phase difference
-  Δ between two signals, `|⟨e^{iΔ}⟩|`. It measures how steadily the two signals keep the same phase
+  δ between two signals, `|⟨e^{iδ}⟩|`. It measures how steadily the two signals keep the same phase
   difference.
-- The **second circular moment** is `⟨e^{2iΔ}⟩`, and its modulus is the **second-harmonic PLV**.
+- The **second circular moment** is `⟨e^{2iδ}⟩`, and its modulus is the **second-harmonic PLV**.
   "The two harmonics" are these two moments. Their **relative phase** is the angle of the second
   moment, counted from twice the angle of the first.
 - An **embedding** is the recipe that writes the two phases into a quantum state. The naive
