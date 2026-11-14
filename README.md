@@ -24,17 +24,18 @@ results.
 The capstone (`12` to `20` in `notebooks/04_QuantumOptimalTransport/`) does not hand-wave its
 question: can a quantum coupling measure read something the phase-locking value cannot?
 
-Three words carry the answer. Write Δ for the phase difference between two signals. PLV is the length
-of the average of `e^{iΔ}`, and that average is the *first harmonic* of the phase difference. The
-*second harmonic* is the average of `e^{2iΔ}`, which PLV discards; it tells, for instance, whether
+Three words carry the answer. Write δ for the phase difference between two signals. PLV is the length
+of the average of `e^{iδ}`, and that average is the *first harmonic* of the phase difference. The
+*second harmonic* is the average of `e^{2iδ}`, which PLV discards; it tells, for instance, whether
 the phase difference gathers around two opposite values instead of one. An *embedding* is the recipe
 that writes the two signals into a quantum state, and it decides which harmonics the state carries.
 
 The capstone builds two synthetic ensembles, sets of sampled phase pairs, with the same first
 harmonic, hence **identical PLV by construction**, and a different second harmonic. It then simulates
 a pair of coupled oscillators whose second harmonic has a coupling strength of its own. Each quantum
-measure is scored beside a classical statistic of the same harmonics. The capstone reaches four
-conclusions:
+measure is scored beside a classical statistic of the same harmonics. A last embedding, which also
+writes the amplitude of a signal, is tried on a coupling in which one amplitude follows the phase
+difference. The capstone reaches five conclusions:
 
 1. When its embedding carries the second harmonic, a quantum coupling measure **reads structure that
    PLV cannot**. On the simplest embedding, which carries the first harmonic only, it follows PLV.
@@ -43,7 +44,10 @@ conclusions:
 3. On the *relative phase* of the two harmonics, that is, how the second is shifted against the
    first, the quantum measures computed in the course read **less** than a classical statistic: they
    are blind to the direction of the shift.
-4. What quantum optimal transport brings is a **unified geometric framework**: one state, one distance
+4. On a *phase–amplitude coupling*, a change of embedding lets the quantum measure respond, and it
+   reads **nothing that the classical statistic built for that coupling misses** (the modulation
+   index of Tort et al.), which needs fewer samples.
+5. What quantum optimal transport brings is a **unified geometric framework**: one state, one distance
    from independence, and the embedding as the single dial that sets what the coupling measure reads.
    On the synthetic systems of the capstone that is a unification, not a gain in sensitivity.
 

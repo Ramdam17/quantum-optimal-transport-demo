@@ -18,12 +18,12 @@ signals are coupled, PLV sees it — so a quantum measure feels like machinery f
 
 **What is really going on.** A coupling measure reads only what your *embedding* hands it, the
 embedding being the recipe that writes the two signals into a quantum state. PLV is the modulus of
-the first circular moment of the phase difference, `|⟨e^{iΔθ}⟩|`. Two ensembles can share the same
+the first circular moment of the phase difference, `|⟨e^{iδ}⟩|`. Two ensembles can share the same
 first moment, hence an *identical* PLV by construction, and differ in their second moment
-`⟨e^{2iΔθ}⟩`. The mutual information of a quantum embedding that carries both moments, the
+`⟨e^{2iδ}⟩`. The mutual information of a quantum embedding that carries both moments, the
 multi-frequency qutrit of `04/15`, then differs between them, while PLV and the naive phase-qubit
 embedding, which carries the first moment only, give the same value for both. PLV is not the only
-classical statistic, though: the second-harmonic PLV, `|⟨e^{2iΔθ}⟩|`, reads the same difference, and
+classical statistic, though: the second-harmonic PLV, `|⟨e^{2iδ}⟩|`, reads the same difference, and
 from fewer samples than the qutrit embedding with equal weights needs. So the reason to bother is not
 sensitivity. It is that PLV and the second-harmonic PLV become two readings of one state, measured by
 one distance from independence, with the embedding as the dial that sets what is read.
