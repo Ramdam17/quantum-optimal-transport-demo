@@ -165,6 +165,30 @@ with a device. The second is the shot noise on a single hardware estimate of a s
 exactly. A demonstration on hardware would pay both. Conflating them manufactures a false
 "significant on hardware" claim. (`05/06`.)
 
+## 7. Phase–amplitude coupling
+
+**May:** On synthetic dyads in which the amplitude of one channel follows the phase difference, the
+quantum mutual information of the amplitude–phase qubit responds to the coupling, where PLV does not
+move. On the amplitude law of `04/19` it responds downwards, from 0.0034 to 0.00004 nat, and it
+detects the coupling in every set of records from 2,000 samples on.
+
+**May not:**
+- "The quantum measure detects a phase–amplitude coupling that the modulation index misses." — The
+  modulation index of Tort et al. detects the same coupling from fewer samples: at 200 samples it
+  does so in 0.79 of the sets of records, against 0.32 for the quantum measure (`04/19`).
+- "A smaller quantum mutual information means less coupling." — The direction of the response is set
+  by the embedding and the amplitude law together. Here the measure falls when the coupling is
+  switched on, because the phase difference gathers where the coherence of the amplitude–phase qubit
+  vanishes (`04/19`).
+- Do not set the index values of `04/19` beside published modulation indices. The index there is
+  adapted to a phase difference and computed with 18 bins on amplitudes given directly, without
+  filtering and without noise.
+
+**Why:** The result rests on one noiseless amplitude law, applied to one channel, with independent
+samples and three record lengths. It shows that a change of embedding changes what the quantum
+measure can respond to, and it shows nothing beyond the classical statistic built for that coupling.
+(`04/19`, `04/22`.)
+
 ---
 
 ## Quick reference
@@ -173,6 +197,7 @@ exactly. A demonstration on hardware would pay both. Conflating them manufacture
 |---|---|---|
 | QOT vs PLV | with an embedding that carries the second harmonic, reads past PLV on synthetic signals, no further than a classical statistic of the same harmonics | "QOT beats PLV"; "only QOT can"; "QOT is more sensitive" |
 | relative phase | the QMI and Bures distance of the qutrit embedding read its cosine, not its sign | "the quantum measures read everything the classical ones do"; "no quantum measure could read the sign" |
+| phase–amplitude coupling | the amplitude embedding responds to it, in a direction the embedding and the amplitude law set; behind the modulation index on short records, level with it from 2,000 samples | "the quantum measure detects a coupling the modulation index misses"; "a smaller QMI means less coupling" |
 | QMI | total correlation; = entanglement only for pure states | "QMI is an entanglement measure" |
 | Hardware | gaps computed classically; no capstone state was run on a device; judged on a Bell-pair probe, one run would resolve neither gap | "demonstrated on real hardware" |
 | quantum processor | it adds noise to the reading of quantities computed classically | "a quantum processor does better on these signals" |
@@ -181,7 +206,7 @@ exactly. A demonstration on hardware would pay both. Conflating them manufacture
 | yardsticks | detection rates describe signal samples; σ_stat describes the device | "7.6σ"; a detection rate quoted as a hardware result |
 
 **One-line summary:** the course *measures, on synthetic signals, that a quantum coupling measure reads
-past PLV, no further than a classical statistic of the same harmonics and less far on their relative
-phase*, and it frames quantum optimal transport as a *unifying geometric language*, not a unique or
+past PLV, no further than a classical statistic of the same harmonics, less far on their relative
+phase, and no further than the modulation index on a phase–amplitude coupling*, and it frames quantum optimal transport as a *unifying geometric language*, not a unique or
 more sensitive detector. It is also *honest that hardware would not resolve gaps of the size of the
 capstone's in one run*, a statement quantified on a Bell-pair probe and not hand-waved.
